@@ -114,15 +114,25 @@ export function unidadeAtivaConfirmada(unidade) {
 
 /**
  * Gate de publicacao de unidade: ativa, validacao confirmada com rastreabilidade
- * (quem, quando e fontes) e ao menos um telefone marcado `validado: true` em E.164.
+ * (quem, quando e fontes), ao menos um telefone marcado `validado: true` em E.164
+ * e ao menos um servico aprovado entre os servicos da unidade.
  * O relatorio usa o mesmo predicado para C-01/C-03.
  */
-export function unidadePublicavel(unidade) {
-  return unidadeAtivaConfirmada(unidade) && telefonesValidados(unidade).length > 0;
+export function unidadePublicavel(unidade, servicos = []) {
+  return (
+    unidadeAtivaConfirmada(unidade) &&
+    telefonesValidados(unidade).length > 0 &&
+    unidadeTemServicoAprovado(unidade, servicos)
+  );
 }
 
 export function servicoAprovado(servico) {
   return servico?.status === 'aprovado';
+}
+
+export function unidadeTemServicoAprovado(unidade, servicos = []) {
+  const idsAprovados = new Set((servicos ?? []).filter(servicoAprovado).map((servico) => servico.id));
+  return (unidade?.servicos ?? []).some((id) => idsAprovados.has(id));
 }
 
 export function preparoAprovado(preparo) {
@@ -238,6 +248,10 @@ export function validarDados(dados, { exemplos = null } = {}) {
   if (!Array.isArray(convenios)) {
     erro(erros, 'convenios.json', 'convenios', 'site', 'deve ser uma lista');
   } else {
+    if (convenios.length > 0) {
+      exigir(erros, 'convenios.json', 'atualizadoEm', 'convenios', dados.convenios?.atualizadoEm);
+      validarData(erros, 'convenios.json', 'atualizadoEm', 'convenios', dados.convenios?.atualizadoEm);
+    }
     convenios.forEach((convenio, indice) => {
       const entidade = convenio?.id ?? `indice-${indice}`;
       exigir(erros, 'convenios.json', 'id', entidade, convenio?.id);
@@ -605,8 +619,37 @@ export function validarDados(dados, { exemplos = null } = {}) {
     erro(erros, 'unidades.json', 'matriz', 'site', 'apenas uma unidade pode ser marcada como matriz');
   }
 
+  const matrizDados = (unidadesLista ?? []).find((unidade) => unidade?.matriz === true);
+  const telefoneMatriz = (matrizDados?.telefones ?? []).find(telefoneValidado)?.e164;
+  if (
+    site.contatoInstitucional?.telefoneE164 &&
+    telefoneMatriz &&
+    site.contatoInstitucional.telefoneE164 !== telefoneMatriz
+  ) {
+    erro(
+      erros,
+      'site.json',
+      'contatoInstitucional.telefoneE164',
+      'site',
+      'deve ser identico ao telefone institucional da matriz'
+    );
+  }
+
   const paginas = dados.paginas?.paginas ?? {};
-  for (const chave of ['home', 'unidades', 'servicos', 'preparo', 'naoEncontrado']) {
+  const paginasObrigatorias = [
+    'home',
+    'unidades',
+    'servicos',
+    'preparo',
+    'naoEncontrado',
+    'sobre',
+    'convenios',
+    'contato'
+  ];
+  if (site.privacidade?.politicaPublicada === true) {
+    paginasObrigatorias.push('privacidade');
+  }
+  for (const chave of paginasObrigatorias) {
     const pagina = paginas[chave];
     if (!pagina) {
       erro(erros, 'paginas.json', 'paginas', chave, 'pagina obrigatoria ausente');
@@ -635,6 +678,15 @@ export function validarDados(dados, { exemplos = null } = {}) {
           `tipo de bloco invalido; use um de: ${TIPOS_BLOCO.join(', ')}`
         );
         return;
+      }
+      if (!['pendente', 'aprovado'].includes(bloco?.status)) {
+        erro(
+          erros,
+          'paginas.json',
+          `${campo}.status`,
+          chave,
+          'status do bloco deve ser "pendente" ou "aprovado"'
+        );
       }
       if (bloco.tipo === 'lista') {
         if (!Array.isArray(bloco.itens) || bloco.itens.length === 0) {
@@ -667,7 +719,7 @@ export function resolverPublicacao(dados, { rascunho = false } = {}) {
   const todosPreparos = ordenarPorSlug(dados.preparos?.preparos ?? []);
   const avisos = [];
 
-  const unidades = todasUnidades.filter((unidade) => rascunho || unidadePublicavel(unidade));
+  const unidades = todasUnidades.filter((unidade) => rascunho || unidadePublicavel(unidade, todosServicos));
 
   const servicos = todosServicos.filter((servico) => {
     if (rascunho) {
@@ -691,7 +743,7 @@ export function resolverPublicacao(dados, { rascunho = false } = {}) {
     const pendentes = todasUnidades.length - unidades.length;
     if (pendentes > 0) {
       avisos.push(
-        `${pendentes} unidade(s) fora do build de producao (sem status ativo, validacao confirmada ou telefone validado)`
+        `${pendentes} unidade(s) fora do build de producao (sem status ativo, validacao confirmada, telefone validado ou servico aprovado)`
       );
     }
     const servicosFora = todosServicos.length - servicos.length;
@@ -705,12 +757,12 @@ export function resolverPublicacao(dados, { rascunho = false } = {}) {
       avisos.push(`${preparosFora} preparo(s) fora do build de producao (revisao nao aprovada)`);
     }
   } else {
-    const unidadesPendentes = todasUnidades.filter((unidade) => !unidadePublicavel(unidade)).length;
+    const unidadesPendentes = todasUnidades.filter((unidade) => !unidadePublicavel(unidade, todosServicos)).length;
     const servicosPendentes = todosServicos.filter((servico) => servico.status !== 'aprovado').length;
     const preparosPendentes = todosPreparos.filter((preparo) => preparo.revisao?.status !== 'aprovado').length;
     if (unidadesPendentes > 0) {
       avisos.push(
-        `gate ignorado no rascunho: ${unidadesPendentes} unidade(s) sem status "ativo"/validacao confirmada`
+        `gate ignorado no rascunho: ${unidadesPendentes} unidade(s) sem status "ativo"/validacao confirmada, telefone validado ou servico aprovado`
       );
     }
     if (servicosPendentes > 0) {

@@ -121,6 +121,8 @@ JSON.
   `^\+55\d{10,11}$`, CEP `^\d{8}$`, `abre < fecha`, `urlBase` e `portalExames.url` exatas.
 - Unidade `ativo` exige validação `confirmado` com `confirmadoPor`, `data` e `fontes`, além de ao
   menos um telefone com `validado: true` em E.164. `validado` ausente ou não booleano é erro.
+- Unidade publicável também exige ao menos um serviço `aprovado` entre os serviços informados.
+- Blocos editoriais exigem `status` `pendente|aprovado`; blocos pendentes não entram na produção.
 - Erros acumulados no formato `arquivo:campo:entidade`, com saída diferente de zero.
 - Gates: unidade publicável, serviço aprovado, preparo aprovado. Em `--rascunho` viram avisos e
   entram a faixa de revisão e o `noindex`.
@@ -137,15 +139,26 @@ O build de produção é tolerante para permitir revisão local. A publicação 
 falha com a lista completa de bloqueios (não para no primeiro):
 
 - `preparos.json:revisao.status:<slug>` para preparo não aprovado exigido por serviço publicável;
+- `servicos.json:aprovados:site` quando não há nenhum serviço aprovado;
+- `unidades.json:servicos:<slug>` para unidade ativa sem serviço aprovado;
 - `unidades.json:publicadas:site` quando não há nenhuma unidade publicável;
 - `rotas:menu:site` quando o menu teria menos de 2 itens;
 - `rotas:<rota>:site` para cada rota estrutural obrigatória ausente (unidades, serviços, preparo,
   convênios, sobre, contato, 404);
+- `paginas.json:blocos:<pagina>` quando uma página publicável tem bloco pendente;
 - `site.json:responsavelTecnico.*` e `site.json:contatoInstitucional.*` para identificação incompleta;
-- `unidades.json:endereco.*:<slug-da-matriz>` para endereço institucional incompleto.
+- `unidades.json:endereco.*:<slug-da-matriz>` para endereço institucional incompleto;
+- `unidades.json:matriz-confirmada:<slug>` quando a matriz não tem cadastro confirmado;
+- `unidades.json:telefones:<slug>` quando a matriz não tem telefone validado.
 
 O rodapé mantém os blocos condicionais (não inventa dado), mas o go-live não passa sem RT/CRM,
-contato institucional e endereço da matriz. T013 está registrada como **parcial** no relatório.
+especialidade, contato institucional e endereço/telefone da matriz. T013 está registrada como
+**parcial** no relatório. Decisão da rodada 3: **o rodapé lê o registro da matriz confirmado
+diretamente** (`validacao.status: confirmado`), mesmo quando a matriz não tem página publicada;
+`site.contatoInstitucional.telefoneE164`, quando preenchido, precisa ser idêntico ao telefone
+institucional da matriz. Assim não há duas fontes nem rodapé vazio enquanto uma página afirma
+exibir a matriz. O build de produção não gera `/contato/` se o endereço/telefone da matriz não
+estiverem confirmados.
 
 ## Normalização do NAP
 
@@ -158,6 +171,22 @@ A checagem `nap.divergencia` compara atributos ocultos (`data-nap-*`) **e** o te
   visível precisa corresponder ao telefone do JSON-LD.
 
 A página da unidade informa que o rodapé exibe o endereço institucional da matriz, não o da unidade.
+O rodapé também tem `data-nap-*`: `data-nap-escopo="matriz"` no endereço e
+`data-nap-escopo="institucional"` no telefone, comparados com a matriz confirmada e com
+`site.contatoInstitucional`.
+
+## Texto editorial x rótulo de interface
+
+A regra de classificação usada na migração para `paginas.json`:
+
+- **Texto editorial** (frase, título com conteúdo, chamada, ressalva) vai para blocos em
+  `paginas.json`, com `tipo` e `status`.
+- **Rótulo de interface** (ex.: "Pular para o conteúdo", "Menu", "abre em nova aba", "Ver unidade")
+  pode permanecer no template.
+
+Na home, a marca, o hero, os títulos e textos das seções e o texto do portal vêm de blocos com
+`id`. O cabeçalho usa `marca-subtitulo`; as seções usam os ids `servicos-*`, `unidades-*` e
+`portal-*`. Nenhuma frase editorial nova foi criada: o conteúdo foi apenas movido dos templates.
 
 ## Privacidade
 
@@ -202,6 +231,15 @@ Cada regra do `--check` e do validador tem um teste que comprova a falha:
 | `html.basico` / faixa de revisão | "html.basico acusa ausência de h1 único", "html.basico recusa faixa de revisão em produção" |
 | `html.metaUnica` | "html.metaUnica acusa título repetido" |
 | `sitemap` | "sitemap acusa URL que não foi gerada" |
+| Rodapé/matriz | "R3-A1: com matriz confirmada...", "R3-A1: matriz não publicável..." |
+| NAP do rodapé | "R3-A2: nap.divergencia acusa divergência no rodapé (CEP e telefone)" |
+| Unidade sem serviço aprovado | "R3-A3: unidade ativa sem serviço aprovado não publica e bloqueia go-live" |
+| Texto editorial em blocos | "R3-A4: marca e títulos de seção vêm de paginas.json" |
+| Blocos pendentes | "R3-A5: bloco com status inválido...", "R3-A5: bloco pendente não publica F4..." |
+| RT/especialidade | "R3-A6: go-live exige especialidade e rodapé não gera pontuação órfã" |
+| Convênios atualizadoEm | "R3-A7: convênio exige atualizadoEm válido" |
+| Robustez do artefato | "R3-A8: noindex é detectado...", "R3-A8: sitemap de produção..." |
+| F4 | "R3-B: F4 gera sobre...", "R3-B: /contato/...", "R3-B: /convenios...", "R3-B: /sobre/...", "R3-B: privacidade..." |
 
 ## Identidade visual provisória
 
@@ -244,23 +282,25 @@ Cada regra do `--check` e do validador tem um teste que comprova a falha:
 
 - Com os dados atuais, o build de produção gera apenas `/` e `/404.html`: as 7 unidades estão
   `a-confirmar`, os 5 serviços e os 5 preparos estão pendentes. Isso é intencional (AC-04/AC-09).
-  Use `npm run build:rascunho` para revisar as 14 páginas com dados fictícios.
-- `npm run build:go-live` **falha hoje** e lista os bloqueios reais (unidades, menu, rotas Fase 4,
-  RT/CRM, contato institucional e endereço da matriz). Isso é o comportamento esperado até a
-  clínica fechar C-01..C-15.
-- T013 (rodapé) está **parcial**: razão social e CNPJ são publicados; RT/CRM, contato e endereço da
-  matriz dependem de dados ainda não confirmados.
-- `/sobre/`, `/contato/`, `/convenios-e-particular/` e `/politica-de-privacidade/` são Fase 4 e não
-  foram implementadas; o menu deriva das rotas realmente geradas, sem links quebrados, e o go-live
-  estrito exige essas rotas.
-- Blocos editoriais de `paginas.json` são renderizados na home, em unidades, serviços e preparo
-  (tipos `titulo`, `subtitulo`, `paragrafo`, `lista`, `destaque`, `aviso`, `citacao`; texto sempre
-  escapado). As futuras páginas de sobre/convênios/contato podem consumir o mesmo renderizador.
+  Use `npm run build:rascunho` para revisar as **17 páginas** com dados fictícios, incluindo as
+  novas rotas de F4.
+- `npm run build:go-live` **falha hoje** e lista os bloqueios reais (unidades, menu, rotas F4,
+  serviço aprovado, blocos pendentes, RT/CRM/especialidade, contato institucional e endereço da
+  matriz). Isso é o comportamento esperado até a clínica fechar C-01..C-15.
+- T013 (rodapé) está **parcial**: razão social e CNPJ são publicados; RT/CRM, especialidade,
+  contato e endereço da matriz dependem de dados ainda não confirmados.
+- F4 implementada como **estrutura**: `/sobre/`, `/convenios-e-particular/` e `/contato/` existem
+  em rascunho com blocos `pendente`; não publicam em produção até os blocos serem aprovados.
+  `/politica-de-privacidade/` só entra quando `site.privacidade.politicaPublicada` for `true` e os
+  blocos estiverem aprovados. O menu deriva das rotas realmente geradas, sem link quebrado.
+- Blocos editoriais de `paginas.json` são renderizados na home, em unidades, serviços, preparo e
+  nas páginas de F4 (tipos `titulo`, `subtitulo`, `paragrafo`, `lista`, `destaque`, `aviso`,
+  `citacao`; texto sempre escapado). Bloco `pendente` é omitido da produção e listado no relatório.
 - JSON-LD nesta rodada é básico (`Organization`, `WebSite`, `MedicalClinic`, `BreadcrumbList`,
   `MedicalWebPage`); o gerador completo, imagens OG por tipo e auditorias formais são Fase 5/6.
-- Convênios: catálogo vazio (`dados/convenios.json`); a página e a matriz unidade×convênio ficam
-  para T033-T035. A ressalva e a data de atualização já aparecem na página da unidade, inclusive
-  quando houver lista.
+- Convênios: catálogo vazio (`dados/convenios.json`); a página e a matriz unidade×convênio são
+  estruturais e só publicam com blocos aprovados. A ressalva e a data de atualização já aparecem
+  na página da unidade e na página de convênios, inclusive quando houver lista.
 - `npm run dev` é um servidor local simples para pré-visualizar o rascunho; não é o servidor de
   produção.
 

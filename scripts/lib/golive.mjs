@@ -1,5 +1,9 @@
 import { ITENS_NAV } from './paginas.mjs';
-import { telefoneValidado } from './dados.mjs';
+import {
+  servicoAprovado,
+  telefoneValidado,
+  unidadeTemServicoAprovado
+} from './dados.mjs';
 
 export const ROTAS_ESTRUTURAIS_GO_LIVE = [
   { rota: '/', rotulo: 'pagina inicial' },
@@ -39,7 +43,7 @@ export function validarGoLive({ dados, publicacao, rotas }) {
       'unidades.json',
       'publicadas',
       'site',
-      'nenhuma unidade publicavel (status ativo, validacao confirmada e telefone validado): o site iria ao ar vazio'
+      'nenhuma unidade publicavel (status ativo, validacao confirmada, telefone validado e servico aprovado): o site iria ao ar vazio'
     );
   }
 
@@ -57,6 +61,47 @@ export function validarGoLive({ dados, publicacao, rotas }) {
   for (const rota of ROTAS_ESTRUTURAIS_GO_LIVE) {
     if (!rotasGeradas.has(rota.rota)) {
       erro(erros, 'rotas', rota.rota, 'site', `rota estrutural obrigatoria nao gerada: ${rota.rotulo}`);
+    }
+  }
+
+  // Servico aprovado e unidade com servico publicavel.
+  const servicos = dados.servicos?.servicos ?? [];
+  const servicosAprovados = servicos.filter(servicoAprovado);
+  if (servicosAprovados.length === 0) {
+    erro(erros, 'servicos.json', 'aprovados', 'site', 'nenhum servico aprovado para publicar');
+  }
+  for (const unidade of dados.unidades?.unidades ?? []) {
+    if (unidade?.status !== 'ativo') {
+      continue;
+    }
+    const entidade = unidade.slug ?? unidade.id ?? 'sem-slug';
+    if (!unidadeTemServicoAprovado(unidade, servicos)) {
+      erro(
+        erros,
+        'unidades.json',
+        'servicos',
+        entidade,
+        'unidade ativa sem nenhum servico aprovado entre os servicos informados'
+      );
+    }
+  }
+
+  // Blocos editoriais pendentes em paginas publicaveis.
+  const paginasEditoriais = ['home', 'unidades', 'servicos', 'preparo', 'sobre', 'convenios', 'contato', 'privacidade'];
+  for (const chave of paginasEditoriais) {
+    if (chave === 'privacidade' && site.privacidade?.politicaPublicada !== true) {
+      continue;
+    }
+    const blocos = dados.paginas?.paginas?.[chave]?.blocos ?? [];
+    const pendentes = blocos.filter((bloco) => bloco?.status !== 'aprovado');
+    if (pendentes.length > 0) {
+      erro(
+        erros,
+        'paginas.json',
+        'blocos',
+        chave,
+        `${pendentes.length} bloco(s) pendente(s) impedem publicar a pagina`
+      );
     }
   }
 
@@ -93,6 +138,15 @@ export function validarGoLive({ dados, publicacao, rotas }) {
   }
   if (!rt.crmUf) {
     erro(erros, 'site.json', 'responsavelTecnico.crmUf', 'site', 'UF do CRM ausente');
+  }
+  if (!rt.especialidade) {
+    erro(
+      erros,
+      'site.json',
+      'responsavelTecnico.especialidade',
+      'site',
+      'especialidade do responsavel tecnico ausente'
+    );
   }
 
   if (!site.contatoInstitucional?.email) {
@@ -131,6 +185,38 @@ export function validarGoLive({ dados, publicacao, rotas }) {
     }
     if (!matriz.uf) {
       erro(erros, 'unidades.json', 'uf', entidade, 'UF da matriz ausente para o rodape');
+    }
+    const telefoneMatriz = (matriz.telefones ?? []).find(telefoneValidado)?.e164;
+    if (matriz.validacao?.status !== 'confirmado') {
+      erro(
+        erros,
+        'unidades.json',
+        'matriz-confirmada',
+        entidade,
+        'a matriz precisa ter cadastro confirmado para o rodape institucional'
+      );
+    }
+    if (!telefoneMatriz) {
+      erro(
+        erros,
+        'unidades.json',
+        'telefones',
+        entidade,
+        'a matriz precisa de ao menos um telefone validado para o rodape institucional'
+      );
+    }
+    if (
+      site.contatoInstitucional?.telefoneE164 &&
+      telefoneMatriz &&
+      site.contatoInstitucional.telefoneE164 !== telefoneMatriz
+    ) {
+      erro(
+        erros,
+        'site.json',
+        'contatoInstitucional.telefoneE164',
+        'site',
+        'deve ser identico ao telefone institucional da matriz'
+      );
     }
   }
 

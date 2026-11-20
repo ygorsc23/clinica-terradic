@@ -11,13 +11,14 @@ import {
   carregarExemplosBriefing,
   carregarJson,
   resolverPublicacao,
+  telefoneValidado,
   validarDados
 } from './lib/dados.mjs';
 import { carregarTemplates } from './lib/render.mjs';
 import { gerarPaginas, planejarRotas } from './lib/paginas.mjs';
 import { validarGoLive } from './lib/golive.mjs';
 import { gerarRelatorio } from './lib/relatorio.mjs';
-import { checarSitemap, executarChecagens } from './lib/checagens.mjs';
+import { checarSitemap, executarChecagens, rotaDoArquivo } from './lib/checagens.mjs';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -173,6 +174,27 @@ async function carregarSlugsTeste(raiz) {
   return (teste.unidades ?? []).map((unidade) => unidade?.slug).filter(Boolean);
 }
 
+function criarNapEsperado(dados, publicacao) {
+  const matriz = (dados.unidades?.unidades ?? []).find((unidade) => unidade?.matriz === true);
+  const matrizConfirmada =
+    matriz && matriz.validacao?.status === 'confirmado' ? matriz : null;
+  return {
+    matriz: matrizConfirmada
+      ? {
+          nome: matrizConfirmada.nomeExibicao,
+          logradouro: matrizConfirmada.endereco?.logradouro ?? '',
+          numero: matrizConfirmada.endereco?.numero ?? '',
+          bairro: matrizConfirmada.endereco?.bairro ?? '',
+          cep: matrizConfirmada.endereco?.cep ?? '',
+          cidade: matrizConfirmada.cidade ?? '',
+          uf: matrizConfirmada.uf ?? ''
+        }
+      : null,
+    telefoneInstitucional:
+      (matrizConfirmada?.telefones ?? []).find(telefoneValidado)?.e164 ?? null
+  };
+}
+
 function imprimirErros(erros, rotulo) {
   for (const erro of erros) {
     if (erro.codigo) {
@@ -275,7 +297,8 @@ export async function executarBuild({
       arquivos: mapa,
       urlBase,
       producao: !rascunho,
-      slugsTeste
+      slugsTeste,
+      napEsperado: criarNapEsperado(dados, publicacao)
     })
   );
   errosCheck.push(
@@ -316,7 +339,8 @@ export async function executarBuild({
         arquivos: mapaProducao,
         urlBase: URL_BASE_PERMITIDA,
         producao: true,
-        slugsTeste
+        slugsTeste,
+        napEsperado: criarNapEsperado(dadosRelatorio, publicacaoRelatorio)
       })
     );
     errosCheck.push(
@@ -346,7 +370,18 @@ export async function executarBuild({
         arquivos: mapaDist,
         urlBase: URL_BASE_PERMITIDA,
         producao: true,
-        slugsTeste
+        slugsTeste,
+        napEsperado: criarNapEsperado(dadosRelatorio, publicacaoRelatorio)
+      })
+    );
+    const rotasDist = [...mapaDist.keys()]
+      .filter((nome) => nome.endsWith('.html'))
+      .map((nome) => rotaDoArquivo(nome));
+    errosCheck.push(
+      ...checarSitemap({
+        arquivos: mapaDist,
+        rotas: rotasDist,
+        urlBase: URL_BASE_PERMITIDA
       })
     );
   }

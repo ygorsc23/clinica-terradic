@@ -282,7 +282,7 @@ test('nap.divergencia acusa nome diferente entre HTML e JSON-LD', () => {
       }
     ]
   };
-  const html = `<address data-nap-nome="Unidade A" data-nap-logradouro="Rua A" data-nap-cep="60000000" data-nap-telefone="+5585900000001"></address><script type="application/ld+json">${JSON.stringify(json)}</script>`;
+  const html = `<address data-nap-escopo="unidade" data-nap-nome="Unidade A" data-nap-logradouro="Rua A" data-nap-cep="60000000" data-nap-telefone="+5585900000001"></address><script type="application/ld+json">${JSON.stringify(json)}</script>`;
   const erros = rodar('nap.divergencia', { 'unidades/a/index.html': html });
   assert.ok(erros.some((erro) => erro.regra === 'nap.divergencia' && erro.detalhe.includes('nome')));
 });
@@ -431,7 +431,7 @@ test('M2: ressalva e data de atualização aparecem mesmo com convênio na lista
     ]
   };
   dados.unidades.unidades[0].convenios = ['unimed'];
-  const paginas = await paginasDe(dados);
+  const paginas = await paginasDe(dados, { rascunho: true });
   const html = htmlDaPagina(paginas, '/unidades/teste-centro/');
   assert.ok(html.includes('Unimed'));
   assert.match(html, /Lista atualizada em 20\/11\/2026/);
@@ -456,7 +456,7 @@ test('M3: serviço pendente não aparece em chips nem em availableService', asyn
     status: 'pendente'
   });
   dados.unidades.unidades[0].servicos = ['pendente-teste'];
-  const paginas = await paginasDe(dados);
+  const paginas = await paginasDe(dados, { rascunho: true });
   const html = htmlDaPagina(paginas, '/unidades/teste-centro/');
   assert.ok(!html.includes('Serviço Pendente Teste'));
   assert.ok(!html.includes('Pendente Teste'));
@@ -563,7 +563,7 @@ test('M8: NAP compara CEP visível normalizado além dos atributos ocultos', () 
       }
     ]
   };
-  const html = `<address data-nap-nome="Unidade A" data-nap-logradouro="Rua A" data-nap-bairro="Centro" data-nap-cep="60000000" data-nap-telefone="+5585900000001"><span>Rua A, 10</span><span>Centro · CEP 60000-001</span></address><a href="tel:+5585900000001">(85) 90000-0001</a><script type="application/ld+json">${JSON.stringify(json)}</script>`;
+  const html = `<address data-nap-escopo="unidade" data-nap-nome="Unidade A" data-nap-logradouro="Rua A" data-nap-bairro="Centro" data-nap-cep="60000000" data-nap-telefone="+5585900000001"><span>Rua A, 10</span><span>Centro · CEP 60000-001</span></address><a href="tel:+5585900000001">(85) 90000-0001</a><script type="application/ld+json">${JSON.stringify(json)}</script>`;
   const erros = rodar('nap.divergencia', { 'unidades/a/index.html': html });
   assert.ok(erros.some((erro) => erro.regra === 'nap.divergencia' && erro.detalhe.includes('CEP visível')));
 });
@@ -623,9 +623,299 @@ test('L2: conteudo.hex também acusa cor literal em SVG', () => {
 test('L4/L5/M8: marca vem do JSON, WhatsApp avisa ambiente externo e nota da matriz aparece', async () => {
   const dados = dadosComUnidadesAtivas();
   dados.site.marca.nome = 'Marca Teste';
-  const paginas = await paginasDe(dados);
+  const paginas = await paginasDe(dados, { rascunho: true });
   const htmlUnidade = htmlDaPagina(paginas, '/unidades/teste-centro/');
   assert.ok(htmlUnidade.includes('O WhatsApp é um serviço externo'));
   assert.ok(htmlUnidade.includes('endereço institucional da matriz'));
   assert.ok(htmlUnidade.includes('Marca Teste'));
+});
+
+
+// ---------- Rodada 3: F4, blocos, rodapé/NAP e robustez ----------
+
+function dadosComMatrizCompleta() {
+  const dados = dadosComUnidadesAtivas();
+  dados.unidades.unidades = dados.unidades.unidades.filter(
+    (unidade) => unidade.slug === 'teste-centro'
+  );
+  const tomografia = dados.servicos.servicos.find((servico) => servico.id === 'tomografia');
+  tomografia.status = 'aprovado';
+  tomografia.resumo = 'Exame de imagem.';
+  tomografia.descricao = ['Descrição aprovada para teste.'];
+  dados.unidades.unidades[0].servicos = ['tomografia'];
+  dados.preparos.preparos
+    .filter((preparo) => preparo.servicoId === 'tomografia')
+    .forEach((preparo) => {
+      preparo.revisao = {
+        status: 'aprovado',
+        responsavel: 'RT Teste',
+        crm: '12345',
+        data: '2026-11-20'
+      };
+    });
+  dados.site.responsavelTecnico = {
+    status: 'confirmado',
+    nome: 'Dra. Teste',
+    crm: '12345',
+    crmUf: 'CE',
+    especialidade: 'Radiologia'
+  };
+  dados.site.contatoInstitucional = {
+    email: 'contato@terradic.invalid',
+    telefoneE164: '+558590000001'
+  };
+  return dados;
+}
+
+function napEsperadoDe(dados, publicacao) {
+  const matriz = (dados.unidades?.unidades ?? []).find(
+    (unidade) => unidade.matriz === true && unidade.validacao?.status === 'confirmado'
+  );
+  return {
+    matriz: matriz
+      ? {
+          nome: matriz.nomeExibicao,
+          logradouro: matriz.endereco.logradouro,
+          numero: matriz.endereco.numero,
+          bairro: matriz.endereco.bairro,
+          cep: matriz.endereco.cep,
+          cidade: matriz.cidade,
+          uf: matriz.uf
+        }
+      : null,
+    telefoneInstitucional:
+      (matriz?.telefones ?? []).find((telefone) => telefone.validado === true)?.e164 ?? null
+  };
+}
+
+test('R3-A1: com matriz confirmada, rodapé contém endereço e telefone institucional', async () => {
+  const dados = dadosComMatrizCompleta();
+  const paginas = await paginasDe(dados);
+  const home = htmlDaPagina(paginas, '/');
+  assert.ok(home.includes('Avenida das Palmeiras'));
+  assert.ok(home.includes('(85) 9000-0001'));
+  assert.ok(home.includes('Radiologia'));
+});
+
+test('R3-A1: matriz não confirmada bloqueia o go-live e omite o rodapé', async () => {
+  const dados = dadosComMatrizCompleta();
+  dados.unidades.unidades[0].status = 'a-confirmar';
+  dados.unidades.unidades[0].validacao.status = 'pendente';
+  const publicacao = resolverPublicacao(dados, { rascunho: false });
+  const erros = validarGoLive({
+    dados,
+    publicacao,
+    rotas: planejarRotas(dados, publicacao, { rascunho: false }).map((pagina) => pagina.rota)
+  });
+  assert.ok(erros.some((erro) => erro.codigo === 'unidades.json:matriz-confirmada:teste-centro'));
+  const paginas = await paginasDe(dados);
+  const home = htmlDaPagina(paginas, '/');
+  assert.ok(!home.includes('Avenida das Palmeiras'));
+});
+
+test('R3-A1: matriz confirmada sem página publicada ainda alimenta o rodapé', async () => {
+  const dados = dadosComUnidadesAtivas();
+  dados.site.contatoInstitucional = {
+    email: 'contato@terradic.invalid',
+    telefoneE164: '+558590000001'
+  };
+  const publicacao = resolverPublicacao(dados, { rascunho: false });
+  assert.equal(publicacao.unidades.length, 0);
+  const paginas = await paginasDe(dados);
+  const home = htmlDaPagina(paginas, '/');
+  assert.ok(home.includes('Avenida das Palmeiras'));
+  assert.ok(home.includes('(85) 9000-0001'));
+});
+
+test('R3-A2: nap.divergencia acusa divergência no rodapé (CEP e telefone)', async () => {
+  const dados = dadosComMatrizCompleta();
+  const publicacao = resolverPublicacao(dados, { rascunho: false });
+  const paginas = await paginasDe(dados);
+  const home = htmlDaPagina(paginas, '/');
+  const esperado = napEsperadoDe(dados, publicacao);
+
+  const cepErrado = home.replace('data-nap-cep="60000000"', 'data-nap-cep="60000001"');
+  const errosCep = rodar('nap.divergencia', { 'index.html': cepErrado }, true, {
+    napEsperado: esperado
+  });
+  assert.ok(errosCep.some((erro) => erro.detalhe.includes('rodapé: CEP')));
+
+  const telefoneErrado = home.replace(
+    'data-nap-telefone="+558590000001"',
+    'data-nap-telefone="+558590000011"'
+  );
+  const errosTelefone = rodar('nap.divergencia', { 'index.html': telefoneErrado }, true, {
+    napEsperado: esperado
+  });
+  assert.ok(errosTelefone.some((erro) => erro.detalhe.includes('telefone institucional')));
+});
+
+test('R3-A3: unidade ativa sem serviço aprovado não publica e bloqueia go-live', () => {
+  const dados = dadosComUnidadesAtivas();
+  const publicacao = resolverPublicacao(dados, { rascunho: false });
+  assert.equal(publicacao.unidades.length, 0);
+  const erros = validarGoLive({
+    dados,
+    publicacao,
+    rotas: planejarRotas(dados, publicacao, { rascunho: false }).map((pagina) => pagina.rota)
+  });
+  assert.ok(erros.some((erro) => erro.codigo === 'servicos.json:aprovados:site'));
+  assert.ok(erros.some((erro) => erro.codigo === 'unidades.json:servicos:teste-centro'));
+});
+
+test('R3-A4: marca e títulos de seção vêm de paginas.json', async () => {
+  const dados = structuredClone(dadosBase);
+  dados.paginas.paginas.home.blocos.find((bloco) => bloco.id === 'marca-subtitulo').texto =
+    'Marca Teste Sub';
+  dados.paginas.paginas.home.blocos.find((bloco) => bloco.id === 'servicos-titulo').texto =
+    'Título Serviços Teste';
+  const paginas = await paginasDe(dados, { rascunho: true });
+  const home = htmlDaPagina(paginas, '/');
+  assert.ok(home.includes('Marca Teste Sub'));
+  assert.ok(home.includes('Título Serviços Teste'));
+  assert.ok(!home.includes('Serviços de imagem'));
+});
+
+test('R3-A5: bloco com status inválido falha na validação', () => {
+  const dados = structuredClone(dadosBase);
+  dados.paginas.paginas.home.blocos[0].status = 'rascunho';
+  assert.ok(temCodigo(validar(dados), 'paginas.json:home.blocos[0].status:home'));
+});
+
+test('R3-A5: bloco pendente não publica F4 em produção, aparece no rascunho e no relatório', async () => {
+  const producao = await paginasDe(dadosBase);
+  const rascunho = await paginasDe(dadosBase, { rascunho: true });
+  assert.ok(!producao.some((pagina) => pagina.rota === '/sobre/'));
+  assert.ok(rascunho.some((pagina) => pagina.rota === '/sobre/'));
+
+  const relatorio = gerarRelatorio({
+    dados: dadosBase,
+    publicacao: resolverPublicacao(dadosBase, { rascunho: false })
+  });
+  assert.ok(relatorio.json.blocosPendentes.some((bloco) => bloco.pagina === 'sobre'));
+
+  const publicacao = resolverPublicacao(dadosBase, { rascunho: false });
+  const erros = validarGoLive({
+    dados: dadosBase,
+    publicacao,
+    rotas: planejarRotas(dadosBase, publicacao, { rascunho: false }).map((pagina) => pagina.rota)
+  });
+  assert.ok(erros.some((erro) => erro.codigo === 'paginas.json:blocos:sobre'));
+});
+
+test('R3-A6: go-live exige especialidade e rodapé não gera pontuação órfã', async () => {
+  const dados = dadosComMatrizCompleta();
+  dados.site.responsavelTecnico.especialidade = null;
+  const publicacao = resolverPublicacao(dados, { rascunho: false });
+  const erros = validarGoLive({
+    dados,
+    publicacao,
+    rotas: planejarRotas(dados, publicacao, { rascunho: false }).map((pagina) => pagina.rota)
+  });
+  assert.ok(
+    erros.some((erro) => erro.codigo === 'site.json:responsavelTecnico.especialidade:site')
+  );
+
+  const paginas = await paginasDe(dados);
+  const home = htmlDaPagina(paginas, '/');
+  assert.ok(!home.includes('CRM 12345/CE'));
+  assert.ok(!home.includes('CRM 12345/CE. .'));
+
+  dados.site.responsavelTecnico.especialidade = 'Radiologia';
+  const comEspecialidade = htmlDaPagina(await paginasDe(dados), '/');
+  assert.ok(comEspecialidade.includes('CRM 12345/CE. Radiologia'));
+});
+
+test('R3-A7: convênio exige atualizadoEm válido', () => {
+  const dados = dadosComUnidadesAtivas();
+  dados.convenios = {
+    convenios: [{ id: 'unimed', nome: 'Unimed', exibirLogo: false, logoAutorizado: false }]
+  };
+  assert.ok(temCodigo(validar(dados), 'convenios.json:atualizadoEm:convenios'));
+
+  dados.convenios.atualizadoEm = '2026-11-20';
+  assert.ok(!temCodigo(validar(dados), 'convenios.json:atualizadoEm:convenios'));
+});
+
+test('R3-A8: noindex é detectado com atributos em qualquer ordem', () => {
+  const erros = rodar(
+    'artefato.producao',
+    { 'index.html': '<meta content="noindex" name="robots">' },
+    true
+  );
+  assert.ok(erros.some((erro) => erro.detalhe.includes('noindex')));
+});
+
+test('R3-A8: sitemap de produção não pode conter unidade de teste', () => {
+  const erros = rodar(
+    'artefato.producao',
+    {
+      'index.html': '<html></html>',
+      'sitemap.xml':
+        '<?xml version="1.0"?><urlset><url><loc>https://terradic.com.br/unidades/teste-centro/</loc></url></urlset>'
+    },
+    true,
+    { slugsTeste: ['teste-centro'] }
+  );
+  assert.ok(erros.some((erro) => erro.detalhe.includes('unidade de teste "teste-centro"')));
+});
+
+test('R3-B: F4 gera sobre, convênios e contato no rascunho e não na produção pendente', async () => {
+  const dados = dadosComUnidadesAtivas();
+  const producao = await paginasDe(dados);
+  const rascunho = await paginasDe(dados, { rascunho: true });
+  for (const rota of ['/sobre/', '/convenios-e-particular/', '/contato/']) {
+    assert.ok(!producao.some((pagina) => pagina.rota === rota));
+    assert.ok(rascunho.some((pagina) => pagina.rota === rota));
+  }
+  const homeRascunho = htmlDaPagina(rascunho, '/');
+  assert.ok(homeRascunho.includes('href="/sobre/"'));
+  assert.ok(homeRascunho.includes('href="/contato/"'));
+});
+
+test('R3-B: /contato/ lista telefones de dados confirmados e não tem formulário', async () => {
+  const paginas = await paginasDe(dadosComUnidadesAtivas(), { rascunho: true });
+  const contato = htmlDaPagina(paginas, '/contato/');
+  assert.ok(contato.includes('(85) 9000-0001'));
+  assert.ok(!/<form|<input/i.test(contato));
+});
+
+test('R3-B: /convenios-e-particular/ mostra ressalva e data com lista preenchida', async () => {
+  const dados = dadosComUnidadesAtivas();
+  dados.convenios = {
+    versao: 1,
+    atualizadoEm: '2026-11-20',
+    convenios: [
+      { id: 'unimed', nome: 'Unimed', exibirLogo: false, logoAutorizado: false }
+    ]
+  };
+  dados.unidades.unidades[0].convenios = ['unimed'];
+  const paginas = await paginasDe(dados, { rascunho: true });
+  const convenios = htmlDaPagina(paginas, '/convenios-e-particular/');
+  assert.ok(convenios.includes('Unimed'));
+  assert.match(convenios, /Lista atualizada em 20\/11\/2026/);
+  assert.match(convenios, /cobertura junto à operadora/);
+});
+
+test('R3-B: /sobre/ exibe RT com CRM e especialidade quando confirmados', async () => {
+  const dados = dadosComMatrizCompleta();
+  const paginas = await paginasDe(dados, { rascunho: true });
+  const sobre = htmlDaPagina(paginas, '/sobre/');
+  assert.ok(sobre.includes('Dra. Teste'));
+  assert.ok(sobre.includes('CRM 12345/CE. Radiologia'));
+});
+
+test('R3-B: privacidade é condicional a publicada e a blocos aprovados', async () => {
+  const dados = structuredClone(dadosBase);
+  dados.site.privacidade.politicaPublicada = true;
+  const pendenteDraft = await paginasDe(dados, { rascunho: true });
+  const pendenteProd = await paginasDe(dados);
+  assert.ok(pendenteDraft.some((pagina) => pagina.rota === '/politica-de-privacidade/'));
+  assert.ok(!pendenteProd.some((pagina) => pagina.rota === '/politica-de-privacidade/'));
+
+  dados.paginas.paginas.privacidade.blocos.forEach((bloco) => {
+    bloco.status = 'aprovado';
+  });
+  const aprovadaProd = await paginasDe(dados);
+  assert.ok(aprovadaProd.some((pagina) => pagina.rota === '/politica-de-privacidade/'));
 });

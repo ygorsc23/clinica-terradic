@@ -9,12 +9,64 @@
       },
       "blocos": [
         {
-          "tipo": "titulo",
-          "texto": "Diagnóstico por imagem e telerradiologia no Ceará"
+          "id": "marca-subtitulo",
+          "tipo": "subtitulo",
+          "texto": "Diagnóstico por imagem",
+          "status": "aprovado"
         },
         {
+          "id": "hero-etiqueta",
+          "tipo": "subtitulo",
+          "texto": "Telerradiologia e diagnóstico por imagem",
+          "status": "aprovado"
+        },
+        {
+          "id": "hero-titulo",
+          "tipo": "titulo",
+          "texto": "Diagnóstico por imagem e telerradiologia no Ceará",
+          "status": "aprovado"
+        },
+        {
+          "id": "hero-paragrafo",
           "tipo": "paragrafo",
-          "texto": "A Terradic reúne unidades de diagnóstico por imagem no Ceará. Consulte os serviços disponíveis, os dados de cada unidade e o acesso ao portal de exames."
+          "texto": "A Terradic reúne unidades de diagnóstico por imagem no Ceará. Consulte os serviços disponíveis, os dados de cada unidade e o acesso ao portal de exames.",
+          "status": "aprovado"
+        },
+        {
+          "id": "servicos-titulo",
+          "tipo": "subtitulo",
+          "texto": "Serviços de imagem",
+          "status": "aprovado"
+        },
+        {
+          "id": "servicos-texto",
+          "tipo": "paragrafo",
+          "texto": "Exames de imagem e consultas ambulatoriais da rede.",
+          "status": "aprovado"
+        },
+        {
+          "id": "unidades-titulo",
+          "tipo": "subtitulo",
+          "texto": "Unidades",
+          "status": "aprovado"
+        },
+        {
+          "id": "unidades-texto",
+          "tipo": "paragrafo",
+          "texto": "Endereço, telefone, horário e serviços de cada unidade.",
+          "status": "aprovado"
+        },
+        {
+          "id": "portal-titulo",
+          "tipo": "subtitulo",
+          "texto": "Portal de exames",
+          "status": "aprovado"
+        },
+        {
+          "id": "portal-texto",
+          "tipo": "paragrafo",
+          "texto": "Laudos e imagens ficam disponíveis no portal externo de terceiros. Para acessar, tenha em mãos {{instrucoes}}.",
+          "status": "aprovado"
         }
       ]
     },
@@ -26,7 +78,8 @@
       "blocos": [
         {
           "tipo": "paragrafo",
-          "texto": "Cada unidade reúne endereço, telefones, horário de funcionamento e os serviços de imagem disponíveis. Confirme os dados com a unidade antes da visita."
+          "texto": "Cada unidade reúne endereço, telefones, horário de funcionamento e os serviços de imagem disponíveis. Confirme os dados com a unidade antes da visita.",
+          "status": "aprovado"
         }
       ]
     },
@@ -38,7 +91,8 @@
       "blocos": [
         {
           "tipo": "paragrafo",
-          "texto": "Exames de imagem e consultas ambulatoriais. Cada serviço informa o preparo necessário e as unidades que realizam o exame."
+          "texto": "Exames de imagem e consultas ambulatoriais. Cada serviço informa o preparo necessário e as unidades que realizam o exame.",
+          "status": "aprovado"
         }
       ]
     },
@@ -50,7 +104,86 @@
       "blocos": [
         {
           "tipo": "paragrafo",
-          "texto": "Veja as orientações de preparo de cada exame. O preparo pode variar conforme a unidade e o equipamento: confirme as instruções com a unidade antes da visita."
+          "texto": "Veja as orientações de preparo de cada exame. O preparo pode variar conforme a unidade e o equipamento: confirme as instruções com a unidade antes da visita.",
+          "status": "aprovado"
+        }
+      ]
+    },
+    "sobre": {
+      "seo": {
+        "titulo": "Sobre a Terradic e o responsável técnico | Terradic",
+        "descricao": "Conheça a história e a atuação da Terradic no Ceará, com a identificação do responsável técnico e os canais oficiais de contato."
+      },
+      "blocos": [
+        {
+          "tipo": "titulo",
+          "texto": "Sobre a Terradic",
+          "status": "pendente"
+        },
+        {
+          "tipo": "paragrafo",
+          "texto": "O texto institucional, a história e os diferenciais verificáveis serão publicados após aprovação da clínica.",
+          "status": "pendente"
+        },
+        {
+          "tipo": "subtitulo",
+          "texto": "Responsável técnico",
+          "status": "pendente"
+        }
+      ]
+    },
+    "convenios": {
+      "seo": {
+        "titulo": "Convênios e atendimento particular | Terradic",
+        "descricao": "Veja como funciona o atendimento particular e consulte os convênios por unidade. A cobertura deve ser confirmada com a operadora e a unidade."
+      },
+      "blocos": [
+        {
+          "tipo": "titulo",
+          "texto": "Convênios e atendimento particular",
+          "status": "pendente"
+        },
+        {
+          "tipo": "paragrafo",
+          "texto": "A lista de convênios por unidade e as informações sobre atendimento particular serão publicadas após confirmação da clínica.",
+          "status": "pendente"
+        }
+      ]
+    },
+    "contato": {
+      "seo": {
+        "titulo": "Contato e endereços | Terradic",
+        "descricao": "Telefones por unidade, e-mail institucional e endereço da matriz da Terradic no Ceará. Confirme os dados com a unidade antes da visita."
+      },
+      "blocos": [
+        {
+          "tipo": "titulo",
+          "texto": "Contato e endereços",
+          "status": "pendente"
+        },
+        {
+          "tipo": "paragrafo",
+          "texto": "Os telefones por unidade e o endereço da matriz são exibidos a partir dos dados confirmados pela clínica.",
+          "status": "pendente"
+        }
+      ]
+    },
+    "privacidade": {
+      "publicada": false,
+      "seo": {
+        "titulo": "Política de privacidade | Terradic",
+        "descricao": "Como o site da Terradic trata dados e privacidade: sem formulários, sem cookies próprios e sem coleta de dados pessoais ou de saúde nesta fase."
+      },
+      "blocos": [
+        {
+          "tipo": "titulo",
+          "texto": "Política de privacidade",
+          "status": "pendente"
+        },
+        {
+          "tipo": "paragrafo",
+          "texto": "O texto da política de privacidade será publicado após aprovação da clínica e do jurídico.",
+          "status": "pendente"
         }
       ]
     },

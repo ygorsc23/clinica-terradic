@@ -44,7 +44,7 @@ function htmls(arquivos) {
   return [...arquivos.entries()].filter(([nome]) => nome.endsWith('.html'));
 }
 
-function rotaDoArquivo(nome) {
+export function rotaDoArquivo(nome) {
   if (nome === 'index.html') {
     return '/';
   }
@@ -92,6 +92,91 @@ function normalizarDigitos(valor) {
 function normalizarTelefone(valor) {
   const digitos = normalizarDigitos(valor);
   return digitos.length > 11 && digitos.startsWith('55') ? digitos.slice(2) : digitos;
+}
+
+function metaRobots(conteudo) {
+  const tags = conteudo.match(/<meta\b[^>]*>/gi) ?? [];
+  for (const tag of tags) {
+    const nome = tag.match(/\bname\s*=\s*["']([^"']+)["']/i)?.[1] ?? '';
+    if (nome.toLowerCase() !== 'robots') {
+      continue;
+    }
+    return tag.match(/\bcontent\s*=\s*["']([^"']*)["']/i)?.[1] ?? '';
+  }
+  return '';
+}
+
+function compararEnderecoNap({ erros, arquivo, bloco, esperado, rotulo, clinica = null }) {
+  const tag = bloco.match(/<address\b[^>]*>/)?.[0] ?? '';
+  const nome = extrairAtributo(tag, 'data-nap-nome');
+  const logradouro = extrairAtributo(tag, 'data-nap-logradouro');
+  const numero = extrairAtributo(tag, 'data-nap-numero');
+  const bairro = extrairAtributo(tag, 'data-nap-bairro');
+  const cep = extrairAtributo(tag, 'data-nap-cep');
+  const telefone = extrairAtributo(tag, 'data-nap-telefone');
+
+  if (esperado) {
+    if (esperado.nome && nome !== esperado.nome) {
+      adicionar(erros, 'nap.divergencia', arquivo, `${rotulo}: nome difere entre HTML ("${nome}") e dados ("${esperado.nome}")`);
+    }
+    if (esperado.logradouro && logradouro !== esperado.logradouro) {
+      adicionar(erros, 'nap.divergencia', arquivo, `${rotulo}: logradouro difere entre HTML ("${logradouro}") e dados ("${esperado.logradouro}")`);
+    }
+    if (esperado.numero && numero !== esperado.numero) {
+      adicionar(erros, 'nap.divergencia', arquivo, `${rotulo}: numero difere entre HTML ("${numero}") e dados ("${esperado.numero}")`);
+    }
+    if (esperado.bairro && bairro !== esperado.bairro) {
+      adicionar(erros, 'nap.divergencia', arquivo, `${rotulo}: bairro difere entre HTML ("${bairro}") e dados ("${esperado.bairro}")`);
+    }
+    if (esperado.cep && normalizarDigitos(cep) !== normalizarDigitos(esperado.cep)) {
+      adicionar(erros, 'nap.divergencia', arquivo, `${rotulo}: CEP difere entre HTML ("${cep}") e dados ("${esperado.cep}")`);
+    }
+  }
+
+  if (clinica) {
+    if (clinica.name !== nome) {
+      adicionar(erros, 'nap.divergencia', arquivo, `nome difere entre HTML ("${nome}") e JSON-LD ("${clinica.name}")`);
+    }
+    if (cep && normalizarDigitos(clinica.address?.postalCode) !== normalizarDigitos(cep)) {
+      adicionar(
+        erros,
+        'nap.divergencia',
+        arquivo,
+        `CEP difere entre HTML ("${cep}") e JSON-LD ("${clinica.address?.postalCode ?? ''}")`
+      );
+    }
+    if (telefone && normalizarTelefone(clinica.telephone) !== normalizarTelefone(telefone)) {
+      adicionar(
+        erros,
+        'nap.divergencia',
+        arquivo,
+        `telefone difere entre HTML ("${telefone}") e JSON-LD ("${clinica.telephone ?? ''}")`
+      );
+    }
+    if (logradouro && !String(clinica.address?.streetAddress ?? '').startsWith(logradouro)) {
+      adicionar(
+        erros,
+        'nap.divergencia',
+        arquivo,
+        'logradouro do HTML não corresponde ao streetAddress do JSON-LD'
+      );
+    }
+  }
+
+  const textoVisivel = normalizarTexto(
+    bloco.replace(/<address\b[^>]*>/, '').replace(/<\/address>$/, '').replace(/<[^>]+>/g, ' ')
+  );
+  if (logradouro && !textoVisivel.includes(normalizarTexto(logradouro))) {
+    adicionar(erros, 'nap.divergencia', arquivo, `${rotulo}: logradouro visível diverge do atributo data-nap-logradouro`);
+  }
+  if (bairro && !textoVisivel.includes(normalizarTexto(bairro))) {
+    adicionar(erros, 'nap.divergencia', arquivo, `${rotulo}: bairro visível diverge do atributo data-nap-bairro`);
+  }
+  if (cep && !normalizarDigitos(textoVisivel).includes(normalizarDigitos(cep))) {
+    adicionar(erros, 'nap.divergencia', arquivo, `${rotulo}: CEP visível (formatado) diverge do JSON-LD`);
+  }
+
+  return { telefone };
 }
 
 function extrairAtributo(tag, nome) {
@@ -163,7 +248,7 @@ export const REGRAS = {
         }
       }
 
-      const robots = conteudo.match(/<meta name="robots" content="([^"]*)">/)?.[1] ?? '';
+      const robots = metaRobots(conteudo);
       if (producao) {
         if (rota !== '/404.html' && robots.includes('noindex')) {
           adicionar(erros, 'html.basico', arquivo, 'build de producao nao pode ter noindex em pagina publicavel');
@@ -435,94 +520,109 @@ export const REGRAS = {
     return erros;
   },
 
-  'nap.divergencia': ({ arquivos }) => {
+  'nap.divergencia': ({ arquivos, napEsperado = null }) => {
     const erros = [];
     for (const [arquivo, conteudo] of htmls(arquivos)) {
-      const blocoEndereco = conteudo.match(/<address\b[^>]*data-nap-nome="[^"]*"[^>]*>[\s\S]*?<\/address>/)?.[0];
-      if (!blocoEndereco) {
-        continue;
-      }
-      const tagEndereco = blocoEndereco.match(/<address\b[^>]*>/)?.[0] ?? '';
-      const nome = extrairAtributo(tagEndereco, 'data-nap-nome');
-      const logradouro = extrairAtributo(tagEndereco, 'data-nap-logradouro');
-      const bairro = extrairAtributo(tagEndereco, 'data-nap-bairro');
-      const cep = extrairAtributo(tagEndereco, 'data-nap-cep');
-      const telefone = extrairAtributo(tagEndereco, 'data-nap-telefone');
+      const blocoUnidade = conteudo.match(/<address\b[^>]*data-nap-escopo="unidade"[^>]*>[\s\S]*?<\/address>/i)?.[0];
+      const blocoMatriz = conteudo.match(/<address\b[^>]*data-nap-escopo="matriz"[^>]*>[\s\S]*?<\/address>/i)?.[0];
+      const blocoTelefone = conteudo.match(/<p\b[^>]*data-nap-escopo="institucional"[^>]*>[\s\S]*?<\/p>/i)?.[0];
 
-      const jsonLd = [...conteudo.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
-        .map((resultado) => {
-          try {
-            return JSON.parse(resultado[1]);
-          } catch {
-            return null;
+      if (blocoUnidade) {
+        const jsonLd = [...conteudo.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+          .map((resultado) => {
+            try {
+              return JSON.parse(resultado[1]);
+            } catch {
+              return null;
+            }
+          })
+          .filter(Boolean);
+        let clinica = null;
+        for (const bloco of jsonLd) {
+          for (const no of bloco['@graph'] ?? []) {
+            if (no?.['@type'] === 'MedicalClinic') {
+              clinica = no;
+            }
           }
-        })
-        .filter(Boolean);
-      let clinica = null;
-      for (const bloco of jsonLd) {
-        for (const no of bloco['@graph'] ?? []) {
-          if (no?.['@type'] === 'MedicalClinic') {
-            clinica = no;
+        }
+        if (!clinica) {
+          adicionar(erros, 'nap.divergencia', arquivo, 'página de unidade sem nó MedicalClinic no JSON-LD');
+        } else {
+          compararEnderecoNap({ erros, arquivo, bloco: blocoUnidade, rotulo: 'unidade', clinica });
+          const telefonesVisiveis = [...conteudo.matchAll(/<a\b[^>]*href="tel:[^"]*"[^>]*>([\s\S]*?)<\/a>/g)]
+            .map((resultado) => normalizarTelefone(resultado[1]))
+            .filter(Boolean);
+          if (telefonesVisiveis.length === 0) {
+            adicionar(erros, 'nap.divergencia', arquivo, 'telefone visível ausente na página da unidade');
+          } else if (!telefonesVisiveis.includes(normalizarTelefone(clinica.telephone))) {
+            adicionar(
+              erros,
+              'nap.divergencia',
+              arquivo,
+              `telefone visível (${telefonesVisiveis.join(', ')}) diverge do JSON-LD (${clinica.telephone})`
+            );
           }
         }
       }
-      if (!clinica) {
-        adicionar(erros, 'nap.divergencia', arquivo, 'página de unidade sem nó MedicalClinic no JSON-LD');
-        continue;
-      }
-      if (clinica.name !== nome) {
-        adicionar(erros, 'nap.divergencia', arquivo, `nome difere entre HTML ("${nome}") e JSON-LD ("${clinica.name}")`);
-      }
-      if (cep && normalizarDigitos(clinica.address?.postalCode) !== normalizarDigitos(cep)) {
-        adicionar(
-          erros,
-          'nap.divergencia',
-          arquivo,
-          `CEP difere entre HTML ("${cep}") e JSON-LD ("${clinica.address?.postalCode ?? ''}")`
-        );
-      }
-      if (telefone && normalizarTelefone(clinica.telephone) !== normalizarTelefone(telefone)) {
-        adicionar(
-          erros,
-          'nap.divergencia',
-          arquivo,
-          `telefone difere entre HTML ("${telefone}") e JSON-LD ("${clinica.telephone ?? ''}")`
-        );
-      }
-      if (logradouro && !String(clinica.address?.streetAddress ?? '').startsWith(logradouro)) {
-        adicionar(
-          erros,
-          'nap.divergencia',
-          arquivo,
-          'logradouro do HTML não corresponde ao streetAddress do JSON-LD'
-        );
-      }
 
-      // Texto visivel normalizado (CEP formatado e telefone formatado).
-      const textoVisivel = normalizarTexto(
-        blocoEndereco.replace(/<address\b[^>]*>/, '').replace(/<\/address>$/, '').replace(/<[^>]+>/g, ' ')
-      );
-      if (logradouro && !textoVisivel.includes(normalizarTexto(logradouro))) {
-        adicionar(erros, 'nap.divergencia', arquivo, 'logradouro visível diverge do atributo data-nap-logradouro');
-      }
-      if (bairro && !textoVisivel.includes(normalizarTexto(bairro))) {
-        adicionar(erros, 'nap.divergencia', arquivo, 'bairro visível diverge do atributo data-nap-bairro');
-      }
-      if (cep && !normalizarDigitos(textoVisivel).includes(normalizarDigitos(cep))) {
-        adicionar(erros, 'nap.divergencia', arquivo, 'CEP visível (formatado) diverge do JSON-LD');
-      }
-      if (clinica.telephone) {
-        const telefonesVisiveis = [...conteudo.matchAll(/<a\b[^>]*href="tel:[^"]*"[^>]*>([\s\S]*?)<\/a>/g)]
-          .map((resultado) => normalizarTelefone(resultado[1]))
-          .filter(Boolean);
-        if (telefonesVisiveis.length === 0) {
-          adicionar(erros, 'nap.divergencia', arquivo, 'telefone visível ausente na página da unidade');
-        } else if (!telefonesVisiveis.includes(normalizarTelefone(clinica.telephone))) {
+      if (napEsperado) {
+        if (napEsperado.matriz) {
+          if (!blocoMatriz) {
+            adicionar(erros, 'nap.divergencia', arquivo, 'rodapé sem o endereço institucional da matriz esperado');
+          } else {
+            compararEnderecoNap({
+              erros,
+              arquivo,
+              bloco: blocoMatriz,
+              rotulo: 'rodapé',
+              esperado: napEsperado.matriz
+            });
+          }
+        } else if (blocoMatriz) {
           adicionar(
             erros,
             'nap.divergencia',
             arquivo,
-            `telefone visível (${telefonesVisiveis.join(', ')}) diverge do JSON-LD (${clinica.telephone})`
+            'rodapé exibe endereço da matriz quando nenhuma matriz publicável foi definida'
+          );
+        }
+
+        if (napEsperado.telefoneInstitucional) {
+          if (!blocoTelefone) {
+            adicionar(erros, 'nap.divergencia', arquivo, 'rodapé sem o telefone institucional esperado');
+          } else {
+            const tag = blocoTelefone.match(/<p\b[^>]*>/)?.[0] ?? '';
+            const telefoneOculto = extrairAtributo(tag, 'data-nap-telefone');
+            const telefoneVisivel = blocoTelefone.match(/<a\b[^>]*href="tel:[^"]*"[^>]*>([\s\S]*?)<\/a>/)?.[1] ?? '';
+            if (
+              normalizarTelefone(telefoneOculto) !==
+              normalizarTelefone(napEsperado.telefoneInstitucional)
+            ) {
+              adicionar(
+                erros,
+                'nap.divergencia',
+                arquivo,
+                `telefone institucional oculto ("${telefoneOculto}") diverge de site.contatoInstitucional`
+              );
+            }
+            if (
+              normalizarTelefone(telefoneVisivel) !==
+              normalizarTelefone(napEsperado.telefoneInstitucional)
+            ) {
+              adicionar(
+                erros,
+                'nap.divergencia',
+                arquivo,
+                `telefone institucional visível ("${telefoneVisivel}") diverge de site.contatoInstitucional`
+              );
+            }
+          }
+        } else if (blocoTelefone) {
+          adicionar(
+            erros,
+            'nap.divergencia',
+            arquivo,
+            'rodapé exibe telefone institucional quando site.contatoInstitucional está vazio'
           );
         }
       }
@@ -536,10 +636,7 @@ export const REGRAS = {
     }
     const erros = [];
     for (const [arquivo, conteudo] of htmls(arquivos)) {
-      if (
-        arquivo !== '404.html' &&
-        /<meta\s+name="robots"\s+content="[^"]*noindex/i.test(conteudo)
-      ) {
+      if (arquivo !== '404.html' && metaRobots(conteudo).includes('noindex')) {
         adicionar(erros, 'artefato.producao', arquivo, 'dist de produção não pode conter meta robots noindex');
       }
       if (conteudo.includes('VERSÃO DE REVISÃO')) {
@@ -553,6 +650,16 @@ export const REGRAS = {
     }
     const sitemap = arquivos.get('sitemap.xml');
     if (sitemap) {
+      for (const slug of slugsTeste) {
+        if (slug && sitemap.includes(`/unidades/${slug}/`)) {
+          adicionar(
+            erros,
+            'artefato.producao',
+            'sitemap.xml',
+            `sitemap de produção contém a unidade de teste "${slug}"`
+          );
+        }
+      }
       for (const resultado of sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)) {
         const loc = resultado[1];
         if (urlBase && !loc.startsWith(`${urlBase}/`)) {

@@ -1,4 +1,4 @@
-import { modelo, template } from './render.mjs';
+import { escapar, modelo, template } from './render.mjs';
 import {
   enderecoEmLinha,
   formatarDias,
@@ -17,7 +17,7 @@ import {
   metadados,
   serializarJsonLd
 } from './seo.mjs';
-import { renderizarBlocos, separarBlocosHero } from './blocos.mjs';
+import { renderizarBlocos } from './blocos.mjs';
 
 export const ITENS_NAV = [
   { rota: '/', rotulo: 'Início' },
@@ -34,7 +34,34 @@ function frag(ctx, chave, opcoes = {}) {
 }
 
 function blocosDaPagina(ctx, chave) {
-  return renderizarBlocos(ctx.dados.paginas.paginas[chave]?.blocos ?? [], ctx.templates);
+  const blocos = ctx.dados.paginas.paginas[chave]?.blocos ?? [];
+  const visiveis = ctx.rascunho ? blocos : blocos.filter((bloco) => bloco?.status === 'aprovado');
+  return renderizarBlocos(visiveis, ctx.templates);
+}
+
+function blocoPorId(ctx, pagina, id) {
+  return (ctx.dados.paginas.paginas[pagina]?.blocos ?? []).find((bloco) => bloco?.id === id);
+}
+
+function blocosPendentesDaPagina(dados, chave) {
+  const blocos = dados.paginas?.paginas?.[chave]?.blocos;
+  if (!Array.isArray(blocos)) {
+    return [];
+  }
+  return blocos.filter((bloco) => bloco?.status === 'pendente');
+}
+
+export function paginaEditorialPublicavel(dados, chave) {
+  const blocos = dados.paginas?.paginas?.[chave]?.blocos;
+  if (!Array.isArray(blocos)) {
+    return true;
+  }
+  return blocos.every((bloco) => bloco?.status === 'aprovado');
+}
+
+export function paginaTemBlocos(dados, chave) {
+  const blocos = dados.paginas?.paginas?.[chave]?.blocos;
+  return Array.isArray(blocos) && blocos.length > 0;
 }
 
 function temRota(ctx, rota) {
@@ -78,8 +105,9 @@ function montarNav(ctx, rotaAtual) {
 }
 
 function montarCabecalho(ctx, rotaAtual) {
+  const subtitulo = blocoPorId(ctx, 'home', 'marca-subtitulo')?.texto ?? '';
   return frag(ctx, 'parciais/cabecalho', {
-    texto: { marcaNome: ctx.dados.site.marca.nome },
+    texto: { marcaNome: ctx.dados.site.marca.nome, marcaSubtitulo: subtitulo },
     fragmento: {
       nav: montarNav(ctx, rotaAtual),
       ctaExames: montarCta(ctx)
@@ -91,11 +119,12 @@ function montarRodape(ctx) {
   const site = ctx.dados.site;
   const publicacao = ctx.publicacao;
 
-  const matriz = publicacao.unidades.find((unidade) => unidade.matriz);
+  const matriz = matrizRodape(ctx.dados);
   let blocoEnderecoMatriz = '';
-  if (matriz?.endereco?.logradouro && matriz?.endereco?.numero && matriz?.endereco?.cep) {
+  if (matriz) {
     blocoEnderecoMatriz = frag(ctx, 'parciais/rodape-endereco', {
       texto: {
+        nomeExibicao: matriz.nomeExibicao,
         logradouro: matriz.endereco.logradouro,
         numero: matriz.endereco.numero,
         complemento: matriz.endereco.complemento ? `, ${matriz.endereco.complemento}` : '',
@@ -110,7 +139,7 @@ function montarRodape(ctx) {
 
   let blocoContatoInstitucional = '';
   const email = site.contatoInstitucional?.email;
-  const telefone = site.contatoInstitucional?.telefoneE164;
+  const telefone = telefoneInstitucionalMatriz(ctx.dados);
   if (telefone) {
     blocoContatoInstitucional += frag(ctx, 'parciais/rodape-telefone', {
       texto: { telefone, telefoneFormatado: formatarTelefone(telefone) }
@@ -132,13 +161,10 @@ function montarRodape(ctx) {
     colunaUnidades = frag(ctx, 'parciais/rodape-unidades', { fragmento: { itens } });
   }
 
-  const rt = site.responsavelTecnico;
-  let blocoResponsavelTecnico = '';
-  if (rt?.status === 'confirmado' && rt.nome && rt.crm) {
-    blocoResponsavelTecnico = frag(ctx, 'parciais/rodape-responsavel', {
-      texto: { nome: rt.nome, crm: rt.crm, uf: rt.crmUf, especialidade: rt.especialidade }
-    });
-  }
+  const textoResponsavel = textoResponsavelTecnico(site);
+  const blocoResponsavelTecnico = textoResponsavel
+    ? frag(ctx, 'parciais/rodape-responsavel', { texto: { texto: textoResponsavel } })
+    : '';
 
   const linkPrivacidade =
     site.privacidade?.politicaPublicada === true ? frag(ctx, 'parciais/rodape-privacidade') : '';
@@ -186,12 +212,53 @@ function formatarData(data) {
   return `${dia}/${mes}/${ano}`;
 }
 
+function dataAtualizacaoConvenios(data) {
+  const formatada = formatarData(data);
+  return formatada ? `Lista atualizada em ${formatada}.` : 'Data de atualização não informada.';
+}
+
 function formatarCep(cep) {
   const digitos = String(cep ?? '').replace(/\D/g, '');
   if (digitos.length !== 8) {
     return String(cep ?? '');
   }
   return `${digitos.slice(0, 5)}-${digitos.slice(5)}`;
+}
+
+function textoResponsavelTecnico(site) {
+  const rt = site?.responsavelTecnico;
+  if (
+    rt?.status !== 'confirmado' ||
+    !rt.nome ||
+    !rt.crm ||
+    !rt.crmUf ||
+    !rt.especialidade
+  ) {
+    return '';
+  }
+  const crm = `CRM ${rt.crm}/${rt.crmUf}`;
+  return `Responsável técnico: ${rt.nome} — ${crm}. ${rt.especialidade}.`;
+}
+
+function matrizRodape(dados) {
+  const matriz = (dados.unidades?.unidades ?? []).find((unidade) => unidade?.matriz === true);
+  if (!matriz || matriz.validacao?.status !== 'confirmado') {
+    return null;
+  }
+  if (
+    !matriz.endereco?.logradouro ||
+    !matriz.endereco?.numero ||
+    !matriz.endereco?.bairro ||
+    !matriz.endereco?.cep
+  ) {
+    return null;
+  }
+  return matriz;
+}
+
+function telefoneInstitucionalMatriz(dados) {
+  const matriz = matrizRodape(dados);
+  return (matriz?.telefones ?? []).find(telefoneValidado)?.e164 ?? '';
 }
 
 export function tituloUnidade(unidade) {
@@ -329,12 +396,32 @@ function robotsTxt(ctx, { noindex = false } = {}) {
 function paginaHome(ctx) {
   const dadosPagina = ctx.dados.paginas.paginas.home;
   const temUnidades = temRota(ctx, '/unidades/');
-  const { titulo, paragrafo, restantes } = separarBlocosHero(dadosPagina.blocos ?? []);
+  const blocos = dadosPagina.blocos ?? [];
+  const visiveis = ctx.rascunho ? blocos : blocos.filter((bloco) => bloco?.status === 'aprovado');
+  const pegar = (id) => visiveis.find((bloco) => bloco?.id === id);
+  const idsUsados = new Set([
+    'marca-subtitulo',
+    'hero-etiqueta',
+    'hero-titulo',
+    'hero-paragrafo',
+    'servicos-titulo',
+    'servicos-texto',
+    'unidades-titulo',
+    'unidades-texto',
+    'portal-titulo',
+    'portal-texto'
+  ]);
+  const restantes = visiveis.filter((bloco) => !idsUsados.has(bloco?.id));
+  const textoPortal = escapar(pegar('portal-texto')?.texto ?? '').replace(
+    '{{instrucoes}}',
+    escapar(textoInstrucoes(ctx))
+  );
 
   const secaoHero = frag(ctx, 'parciais/secao-hero-home', {
     texto: {
-      tituloHero: titulo?.texto ?? dadosPagina.seo.titulo,
-      textoHero: paragrafo?.texto ?? ''
+      etiquetaHero: pegar('hero-etiqueta')?.texto ?? '',
+      tituloHero: pegar('hero-titulo')?.texto ?? dadosPagina.seo.titulo,
+      textoHero: pegar('hero-paragrafo')?.texto ?? ''
     },
     fragmento: {
       ctaExames: montarCta(ctx, 'botao-inverso'),
@@ -352,6 +439,10 @@ function paginaHome(ctx) {
   const secaoServicos =
     ctx.publicacao.servicos.length > 0
       ? frag(ctx, 'parciais/secao-servicos-home', {
+          texto: {
+            tituloSecao: pegar('servicos-titulo')?.texto ?? '',
+            textoSecao: pegar('servicos-texto')?.texto ?? ''
+          },
           fragmento: {
             linkTodos: frag(ctx, 'parciais/link-todos', {
               texto: { url: '/servicos/', rotulo: 'Ver todos os serviços' }
@@ -364,6 +455,10 @@ function paginaHome(ctx) {
   const secaoUnidades =
     ctx.publicacao.unidades.length > 0
       ? frag(ctx, 'parciais/secao-unidades-home', {
+          texto: {
+            tituloSecao: pegar('unidades-titulo')?.texto ?? '',
+            textoSecao: pegar('unidades-texto')?.texto ?? ''
+          },
           fragmento: {
             linkTodos: frag(ctx, 'parciais/link-todos', {
               texto: { url: '/unidades/', rotulo: 'Ver todas as unidades' }
@@ -374,8 +469,12 @@ function paginaHome(ctx) {
       : '';
 
   const secaoPortal = frag(ctx, 'parciais/secao-portal-home', {
-    texto: { instrucoes: textoInstrucoes(ctx) },
-    fragmento: { ctaExames: montarCta(ctx), avisoExterno: montarAvisoExterno(ctx) }
+    texto: { tituloSecao: pegar('portal-titulo')?.texto ?? '' },
+    fragmento: {
+      textoPortal,
+      ctaExames: montarCta(ctx),
+      avisoExterno: montarAvisoExterno(ctx)
+    }
   });
 
   const conteudo = frag(ctx, 'home', {
@@ -431,13 +530,15 @@ function paginaUnidades(ctx) {
 
 function paginaUnidade(ctx, unidade) {
   const site = ctx.dados.site;
-  const confirmada = unidadePublicavel(unidade);
+  const confirmada = unidadePublicavel(unidade, ctx.servicos ?? []);
   const seloRevisao = ctx.rascunho && !confirmada ? frag(ctx, 'parciais/selo-revisao') : '';
   const endereco = unidade.endereco ?? {};
   const telefones = (unidade.telefones ?? []).filter(telefoneValidado);
   const temEndereco = Boolean(
     endereco.logradouro && endereco.numero && endereco.bairro && endereco.cep
   );
+  const matrizPublicada = matrizRodape(ctx.dados);
+  const temEnderecoMatriz = Boolean(matrizPublicada);
 
   let blocoEndereco = '';
   if (temEndereco) {
@@ -523,7 +624,7 @@ function paginaUnidade(ctx, unidade) {
   }
 
   const avisoConvenios = frag(ctx, 'parciais/convenios-aviso', {
-    texto: { atualizadoEm: formatarData(ctx.dados.convenios?.atualizadoEm) }
+    texto: { dataAtualizacao: dataAtualizacaoConvenios(ctx.dados.convenios?.atualizadoEm) }
   });
   let blocoConvenios = '';
   const conveniosIds = unidade.convenios ?? [];
@@ -577,7 +678,7 @@ function paginaUnidade(ctx, unidade) {
       pill: montarPill(ctx, unidade),
       seloRevisao,
       blocoEndereco,
-      notaEnderecoMatriz: temEndereco ? frag(ctx, 'parciais/nota-endereco-matriz') : '',
+      notaEnderecoMatriz: temEndereco && temEnderecoMatriz ? frag(ctx, 'parciais/nota-endereco-matriz') : '',
       blocoTelefones,
       blocoWhatsapp,
       blocoEmail,
@@ -851,6 +952,234 @@ function paginaPreparo(ctx) {
   };
 }
 
+function conteudoEditorial(ctx, chave) {
+  const pagina = ctx.dados.paginas.paginas[chave];
+  const blocos = pagina?.blocos ?? [];
+  const visiveis = ctx.rascunho ? blocos : blocos.filter((bloco) => bloco?.status === 'aprovado');
+  const indiceTitulo = visiveis.findIndex((bloco) => bloco?.tipo === 'titulo');
+  const titulo = indiceTitulo >= 0 ? visiveis[indiceTitulo].texto : pagina?.seo?.titulo ?? '';
+  const restantes = visiveis.filter((_, indice) => indice !== indiceTitulo);
+  return { titulo, blocos: renderizarBlocos(restantes, ctx.templates) };
+}
+
+function paginaSobre(ctx) {
+  const site = ctx.dados.site;
+  const dadosPagina = ctx.dados.paginas.paginas.sobre;
+  const { titulo, blocos } = conteudoEditorial(ctx, 'sobre');
+  const itens = [
+    { rotulo: 'Início', url: '/' },
+    { rotulo: 'Sobre', url: '/sobre/' }
+  ];
+  const textoRt = textoResponsavelTecnico(site);
+  const responsavelTecnico = textoRt
+    ? frag(ctx, 'parciais/rt-detalhe', { texto: { texto: textoRt } })
+    : ctx.rascunho
+      ? frag(ctx, 'parciais/nota-revisao')
+      : '';
+
+  const conteudo = frag(ctx, 'sobre', {
+    texto: { tituloPagina: titulo },
+    fragmento: {
+      breadcrumb: montarBreadcrumb(ctx, itens),
+      blocos,
+      responsavelTecnico,
+      ctaExames: montarCta(ctx),
+      avisoExterno: montarAvisoExterno(ctx)
+    }
+  });
+
+  return {
+    rota: '/sobre/',
+    titulo: dadosPagina.seo.titulo,
+    descricao: dadosPagina.seo.descricao,
+    conteudo,
+    robots: robotsTxt(ctx),
+    jsonLd: [
+      jsonLdOrganizacao(site, ctx.urlBase),
+      jsonLdPagina({ urlBase: ctx.urlBase, rota: '/sobre/', nome: dadosPagina.seo.titulo }),
+      jsonLdBreadcrumb(itens, ctx.urlBase)
+    ]
+  };
+}
+
+function paginaConvenios(ctx) {
+  const dadosPagina = ctx.dados.paginas.paginas.convenios;
+  const { titulo, blocos } = conteudoEditorial(ctx, 'convenios');
+  const itensTrilha = [
+    { rotulo: 'Início', url: '/' },
+    { rotulo: 'Convênios e particular', url: '/convenios-e-particular/' }
+  ];
+  const convenios = ctx.dados.convenios?.convenios ?? [];
+  const itens = convenios
+    .map((convenio) => {
+      const unidades = ctx.publicacao.mapaConvenioUnidades.get(convenio.id) ?? [];
+      const nomes = unidades.length > 0
+        ? unidades.map((unidade) => unidade.nomeExibicao).join(', ')
+        : 'Nenhuma unidade publicada nesta revisão.';
+      return frag(ctx, 'parciais/convenio-item', {
+        texto: { nome: convenio.nome, unidades: nomes }
+      });
+    })
+    .join('');
+  const lista = itens ? frag(ctx, 'parciais/lista-simples', { fragmento: { itens } }) : '';
+  const ressalva = frag(ctx, 'parciais/convenios-aviso', {
+    texto: { dataAtualizacao: dataAtualizacaoConvenios(ctx.dados.convenios?.atualizadoEm) }
+  });
+
+  const conteudo = frag(ctx, 'convenios', {
+    texto: { tituloPagina: titulo },
+    fragmento: {
+      breadcrumb: montarBreadcrumb(ctx, itensTrilha),
+      blocos,
+      lista,
+      ressalva,
+      ctaExames: montarCta(ctx),
+      avisoExterno: montarAvisoExterno(ctx)
+    }
+  });
+
+  return {
+    rota: '/convenios-e-particular/',
+    titulo: dadosPagina.seo.titulo,
+    descricao: dadosPagina.seo.descricao,
+    conteudo,
+    robots: robotsTxt(ctx),
+    jsonLd: [
+      jsonLdOrganizacao(ctx.dados.site, ctx.urlBase),
+      jsonLdPagina({
+        urlBase: ctx.urlBase,
+        rota: '/convenios-e-particular/',
+        nome: dadosPagina.seo.titulo
+      }),
+      jsonLdBreadcrumb(itensTrilha, ctx.urlBase)
+    ]
+  };
+}
+
+function montarContatoUnidade(ctx, unidade) {
+  const telefones = (unidade.telefones ?? []).filter(telefoneValidado);
+  const itensTelefones = telefones
+    .map((telefone) =>
+      frag(ctx, 'parciais/telefone-unidade', {
+        texto: {
+          e164: telefone.e164,
+          formatado: formatarTelefone(telefone.e164),
+          rotulo: telefone.rotulo ?? ''
+        }
+      })
+    )
+    .join('');
+  return frag(ctx, 'parciais/contato-unidade', {
+    texto: {
+      nome: unidade.nomeExibicao,
+      endereco: enderecoEmLinha(unidade),
+      slug: unidade.slug
+    },
+    fragmento: {
+      telefones: itensTelefones
+        ? frag(ctx, 'parciais/telefones-unidade', { fragmento: { itens: itensTelefones } })
+        : ''
+    }
+  });
+}
+
+function paginaContato(ctx) {
+  const site = ctx.dados.site;
+  const dadosPagina = ctx.dados.paginas.paginas.contato;
+  const { titulo, blocos } = conteudoEditorial(ctx, 'contato');
+  const itensTrilha = [
+    { rotulo: 'Início', url: '/' },
+    { rotulo: 'Contato', url: '/contato/' }
+  ];
+  const unidades = ctx.publicacao.unidades.map((unidade) => montarContatoUnidade(ctx, unidade)).join('');
+  const listaUnidades = unidades
+    ? frag(ctx, 'parciais/lista-simples', { fragmento: { itens: unidades } })
+    : '';
+
+  const matriz = matrizRodape(ctx.dados);
+  const enderecoMatriz = matriz
+    ? frag(ctx, 'parciais/rodape-endereco', {
+        texto: {
+          nomeExibicao: matriz.nomeExibicao,
+          logradouro: matriz.endereco.logradouro,
+          numero: matriz.endereco.numero,
+          complemento: matriz.endereco.complemento ? `, ${matriz.endereco.complemento}` : '',
+          bairro: matriz.endereco.bairro,
+          cep: matriz.endereco.cep,
+          cepFormatado: formatarCep(matriz.endereco.cep),
+          cidade: matriz.cidade,
+          uf: matriz.uf
+        }
+      })
+    : '';
+
+  let contatoInstitucional = '';
+  const telefone = telefoneInstitucionalMatriz(ctx.dados);
+  if (telefone) {
+    contatoInstitucional += frag(ctx, 'parciais/rodape-telefone', {
+      texto: { telefone, telefoneFormatado: formatarTelefone(telefone) }
+    });
+  }
+  if (site.contatoInstitucional?.email) {
+    contatoInstitucional += frag(ctx, 'parciais/rodape-email', {
+      texto: { email: site.contatoInstitucional.email }
+    });
+  }
+
+  const conteudo = frag(ctx, 'contato', {
+    texto: { tituloPagina: titulo },
+    fragmento: {
+      breadcrumb: montarBreadcrumb(ctx, itensTrilha),
+      blocos,
+      listaUnidades,
+      enderecoMatriz,
+      contatoInstitucional
+    }
+  });
+
+  return {
+    rota: '/contato/',
+    titulo: dadosPagina.seo.titulo,
+    descricao: dadosPagina.seo.descricao,
+    conteudo,
+    robots: robotsTxt(ctx),
+    jsonLd: [
+      jsonLdOrganizacao(site, ctx.urlBase),
+      jsonLdPagina({ urlBase: ctx.urlBase, rota: '/contato/', nome: dadosPagina.seo.titulo }),
+      jsonLdBreadcrumb(itensTrilha, ctx.urlBase)
+    ]
+  };
+}
+
+function paginaPrivacidade(ctx) {
+  const dadosPagina = ctx.dados.paginas.paginas.privacidade;
+  const { titulo, blocos } = conteudoEditorial(ctx, 'privacidade');
+  const itens = [
+    { rotulo: 'Início', url: '/' },
+    { rotulo: 'Política de privacidade', url: '/politica-de-privacidade/' }
+  ];
+  const conteudo = frag(ctx, 'privacidade', {
+    texto: { tituloPagina: titulo },
+    fragmento: { breadcrumb: montarBreadcrumb(ctx, itens), blocos }
+  });
+  return {
+    rota: '/politica-de-privacidade/',
+    titulo: dadosPagina.seo.titulo,
+    descricao: dadosPagina.seo.descricao,
+    conteudo,
+    robots: robotsTxt(ctx),
+    jsonLd: [
+      jsonLdOrganizacao(ctx.dados.site, ctx.urlBase),
+      jsonLdPagina({
+        urlBase: ctx.urlBase,
+        rota: '/politica-de-privacidade/',
+        nome: dadosPagina.seo.titulo
+      }),
+      jsonLdBreadcrumb(itens, ctx.urlBase)
+    ]
+  };
+}
+
 function pagina404(ctx) {
   const dadosPagina = ctx.dados.paginas.paginas.naoEncontrado;
   const itensTrilha = [
@@ -860,7 +1189,9 @@ function pagina404(ctx) {
   const links = [
     { rota: '/unidades/', rotulo: 'Ver unidades' },
     { rota: '/servicos/', rotulo: 'Ver serviços' },
-    { rota: '/preparo-de-exames/', rotulo: 'Preparo de exames' }
+    { rota: '/preparo-de-exames/', rotulo: 'Preparo de exames' },
+    { rota: '/sobre/', rotulo: 'Sobre a Terradic' },
+    { rota: '/contato/', rotulo: 'Contato' }
   ]
     .filter((item) => temRota(ctx, item.rota))
     .map((item) => frag(ctx, 'parciais/lista-link-item', { texto: { url: item.rota, rotulo: item.rotulo } }))
@@ -878,7 +1209,7 @@ function pagina404(ctx) {
   };
 }
 
-export function planejarRotas(dados, publicacao) {
+export function planejarRotas(dados, publicacao, { rascunho = false } = {}) {
   const rotas = [{ rota: '/', tipo: 'home', lastmod: dados.site.atualizadoEm }];
 
   if (publicacao.unidades.length > 0) {
@@ -889,6 +1220,39 @@ export function planejarRotas(dados, publicacao) {
   }
   if (publicacao.preparos.length > 0) {
     rotas.push({ rota: '/preparo-de-exames/', tipo: 'preparo', lastmod: dados.preparos.atualizadoEm });
+  }
+
+  const paginas = dados.paginas?.paginas ?? {};
+  const podeEntrar = (chave, { exigirBlocos = true } = {}) => {
+    const pagina = paginas[chave];
+    if (!pagina) {
+      return false;
+    }
+    if (exigirBlocos && !paginaTemBlocos(dados, chave)) {
+      return false;
+    }
+    return rascunho || paginaEditorialPublicavel(dados, chave);
+  };
+
+  if (podeEntrar('sobre')) {
+    rotas.push({ rota: '/sobre/', tipo: 'sobre', lastmod: dados.paginas.atualizadoEm });
+  }
+  if (podeEntrar('convenios')) {
+    rotas.push({
+      rota: '/convenios-e-particular/',
+      tipo: 'convenios',
+      lastmod: dados.paginas.atualizadoEm
+    });
+  }
+  if (podeEntrar('contato') && matrizRodape(dados) && telefoneInstitucionalMatriz(dados)) {
+    rotas.push({ rota: '/contato/', tipo: 'contato', lastmod: dados.paginas.atualizadoEm });
+  }
+  if (dados.site.privacidade?.politicaPublicada === true && podeEntrar('privacidade')) {
+    rotas.push({
+      rota: '/politica-de-privacidade/',
+      tipo: 'privacidade',
+      lastmod: dados.paginas.atualizadoEm
+    });
   }
 
   for (const unidade of publicacao.unidades) {
@@ -926,6 +1290,14 @@ function montarPagina(ctx, descritor) {
       return paginaServico(ctx, descritor.servico);
     case 'preparo':
       return paginaPreparo(ctx);
+    case 'sobre':
+      return paginaSobre(ctx);
+    case 'convenios':
+      return paginaConvenios(ctx);
+    case 'contato':
+      return paginaContato(ctx);
+    case 'privacidade':
+      return paginaPrivacidade(ctx);
     case 'naoEncontrado':
       return pagina404(ctx);
     default:
@@ -969,7 +1341,8 @@ function renderizarLayout(ctx, pagina) {
  * lastmod e tipo. Nao escreve arquivos (quem escreve e o build).
  */
 export function gerarPaginas({ dados, publicacao, templates, urlBase, rascunho }) {
-  const rotas = planejarRotas(dados, publicacao);
+  const rotas = planejarRotas(dados, publicacao, { rascunho });
+  const servicos = dados.servicos?.servicos ?? [];
   const ctx = {
     dados,
     publicacao,
@@ -977,7 +1350,8 @@ export function gerarPaginas({ dados, publicacao, templates, urlBase, rascunho }
     urlBase,
     rascunho,
     rotas,
-    servicoPorId: new Map((dados.servicos?.servicos ?? []).map((item) => [item.id, item])),
+    servicos,
+    servicoPorId: new Map(servicos.map((item) => [item.id, item])),
     convenioPorId: new Map((dados.convenios?.convenios ?? []).map((item) => [item.id, item]))
   };
 

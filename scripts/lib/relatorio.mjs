@@ -1,4 +1,9 @@
-import { telefoneValidado, unidadeAtivaConfirmada, unidadePublicavel } from './dados.mjs';
+import {
+  telefoneValidado,
+  unidadeAtivaConfirmada,
+  unidadePublicavel,
+  unidadeTemServicoAprovado
+} from './dados.mjs';
 
 const CAMPOS_STATUS_OK = new Set([
   'ativo',
@@ -64,6 +69,23 @@ function pendenciasDe(objeto) {
   return destino;
 }
 
+function blocosPendentes(dados) {
+  const destino = [];
+  for (const [pagina, config] of Object.entries(dados.paginas?.paginas ?? {})) {
+    (config?.blocos ?? []).forEach((bloco, indice) => {
+      if (bloco?.status === 'pendente') {
+        destino.push({
+          pagina,
+          indice,
+          tipo: bloco.tipo ?? null,
+          id: bloco.id ?? null
+        });
+      }
+    });
+  }
+  return destino;
+}
+
 function simNao(valor) {
   return valor ? 'sim' : 'não';
 }
@@ -90,6 +112,9 @@ export function gerarRelatorio({ dados, publicacao }) {
   );
   const unidadeSemHorario = unidades.some((unidade) => (unidade.horarios ?? []).length === 0);
   const unidadeSemServico = unidades.some((unidade) => (unidade.servicos ?? []).length === 0);
+  const unidadeSemServicoAprovado = unidades.some(
+    (unidade) => !unidadeTemServicoAprovado(unidade, servicos)
+  );
   const unidadeSemConvenio = unidades.some((unidade) => (unidade.convenios ?? []).length === 0);
   const unidadeSemParticular = unidades.some((unidade) => unidade.atendimentoParticular == null);
   const preparoPendente = preparos.some((preparo) => preparo.revisao?.status !== 'aprovado');
@@ -129,7 +154,7 @@ export function gerarRelatorio({ dados, publicacao }) {
       id: 'C-05',
       item: 'Serviços realizados em cada unidade',
       responsavel: 'Clínica',
-      pendente: unidadeSemServico || servicoPendente,
+      pendente: unidadeSemServico || unidadeSemServicoAprovado || servicoPendente,
       bloqueia: true
     },
     {
@@ -223,6 +248,7 @@ export function gerarRelatorio({ dados, publicacao }) {
       convenios: convenios.length
     },
     bloqueios,
+    blocosPendentes: blocosPendentes(dados),
     site: pendenciasDe({
       marca: site.marca,
       urlBase: site.urlBase,
@@ -240,7 +266,7 @@ export function gerarRelatorio({ dados, publicacao }) {
       nomeExibicao: unidade.nomeExibicao,
       status: unidade.status,
       validacao: unidade.validacao?.status ?? null,
-      publicavel: unidadePublicavel(unidade),
+      publicavel: unidadePublicavel(unidade, servicos),
       pendencias: pendenciasDe(unidade)
     })),
     servicos: servicos.map((servico) => ({
@@ -269,8 +295,8 @@ export function gerarRelatorio({ dados, publicacao }) {
   linhas.push('> de campanha (Pacajus), não são a marca oficial. A troca depende de C-11 (brandbook + SVG).');
   linhas.push('> Nenhum telefone, endereço ou horário de exemplo do levantamento é usado no site.');
   linhas.push('');
-  linhas.push('> **T013 (rodapé) — parcial.** Razão social e CNPJ já são publicados, mas RT/CRM, contato');
-  linhas.push('> institucional e endereço da matriz seguem pendentes (C-08, C-15 e C-02). O rodapé mantém');
+  linhas.push('> **T013 (rodapé) - parcial.** Razão social e CNPJ já são publicados, mas RT/CRM/UF/especialidade, contato');
+  linhas.push('> institucional e endereço/telefone da matriz seguem pendentes (C-08, C-15 e C-02). O rodapé mantém');
   linhas.push('> os blocos condicionais; `npm run build:go-live` falha enquanto esses dados não forem confirmados.');
   linhas.push('');
   linhas.push('## Resumo do build');
@@ -373,6 +399,19 @@ export function gerarRelatorio({ dados, publicacao }) {
       linhas.push(`| \`${pendencia.campo}\` | ${pendencia.situacao} |`);
     }
   }
+
+  linhas.push('');
+  linhas.push('## Blocos editoriais pendentes');
+  linhas.push('');
+  if (json.blocosPendentes.length === 0) {
+    linhas.push('Nenhum bloco pendente: todas as páginas podem ser publicadas em produção.');
+  } else {
+    linhas.push('| Página | Índice | Tipo | Id |');
+    linhas.push('|---|---|---|---|');
+    for (const bloco of json.blocosPendentes) {
+      linhas.push(`| ${bloco.pagina} | ${bloco.indice} | ${bloco.tipo ?? '-'} | ${bloco.id ?? '-'} |`);
+    }
+  }
   linhas.push('');
   linhas.push('## Notas');
   linhas.push('');
@@ -382,6 +421,9 @@ export function gerarRelatorio({ dados, publicacao }) {
   linhas.push('- `analytics` é intencionalmente `null`: o site não mede audiência nem coleta dados nesta fase (Q-09).');
   linhas.push('- Convênios: catálogo vazio nesta rodada (Fase 4 / T033-T035 não implementada).');
   linhas.push('- Blocos editoriais de `paginas.json` (home, unidades, serviços e preparo) são renderizados por tipo conhecido; tipo desconhecido derruba o build.');
+  linhas.push('- Blocos `pendente` não entram na produção, são listados acima e impedem o go-live da página correspondente.');
+  linhas.push('- Matriz e rodapé: o rodapé lê o registro da matriz confirmado diretamente (`validacao.status: confirmado`), mesmo sem página publicada; `site.contatoInstitucional.telefoneE164` deve ser idêntico ao telefone da matriz quando preenchido. `/contato/` só é gerada com endereço e telefone da matriz confirmados.');
+  linhas.push('- F4: `/sobre/`, `/convenios-e-particular/` e `/contato/` existem em rascunho com blocos pendentes; em produção só entram após aprovação dos blocos.');
   linhas.push('- `npm run build` é tolerante e gera o site publicável. `npm run build:go-live` aplica os gates estritos de unidades, menu, rotas, preparos e identificação do rodapé.');
   linhas.push('');
 
