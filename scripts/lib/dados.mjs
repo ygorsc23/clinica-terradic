@@ -100,6 +100,15 @@ export function telefonesValidados(unidade) {
   return (unidade?.telefones ?? []).filter(telefoneValidado);
 }
 
+export function telefonesPrincipais(unidade) {
+  return (unidade?.telefones ?? []).filter((telefone) => telefone?.principal === true);
+}
+
+export function telefonePrincipal(unidade) {
+  const principais = telefonesPrincipais(unidade).filter(telefoneValidado);
+  return principais.length === 1 ? principais[0] : null;
+}
+
 export function unidadeAtivaConfirmada(unidade) {
   const validacao = unidade?.validacao ?? {};
   return (
@@ -186,7 +195,7 @@ function validarTelefone(erros, arquivo, campo, entidade, valor, exemplosTelefon
  * Valida schema, formatos, refs e coerencia de publicacao.
  * Cada erro sai como `arquivo:campo:entidade`.
  */
-export function validarDados(dados, { exemplos = null } = {}) {
+export function validarDados(dados, { exemplos = null, rascunho = false } = {}) {
   const erros = [];
   const exemplosTelefones = new Set(
     (exemplos?.telefones ?? []).map((item) => item?.e164).filter(Boolean)
@@ -423,12 +432,33 @@ export function validarDados(dados, { exemplos = null } = {}) {
           `use um de: ${STATUS_VALIDACAO.join(', ')}`
         );
       }
-      if (unidade?.matriz === true) {
-        totalMatriz += 1;
-        if (!unidade?.cnpjFilial) {
-          erro(erros, 'unidades.json', 'cnpjFilial', entidade, 'matriz exige CNPJ registrado');
+        if (unidade?.matriz === true) {
+          totalMatriz += 1;
+          if (!unidade?.cnpjFilial) {
+            erro(erros, 'unidades.json', 'cnpjFilial', entidade, 'matriz exige CNPJ registrado');
+          }
+          const telefonesMatriz = Array.isArray(unidade?.telefones) ? unidade.telefones : [];
+          if (telefonesMatriz.length > 0) {
+            const principais = telefonesMatriz.filter((telefone) => telefone?.principal === true);
+            if (principais.length !== 1) {
+              erro(
+                erros,
+                'unidades.json',
+                'telefones',
+                entidade,
+                'matriz exige exatamente um telefone com principal: true'
+              );
+            } else if (!telefoneValidado(principais[0])) {
+              erro(
+                erros,
+                'unidades.json',
+                'telefones',
+                entidade,
+                'o telefone principal da matriz precisa estar validado em E.164'
+              );
+            }
+          }
         }
-      }
       validarData(erros, 'unidades.json', 'atualizadoEm', entidade, unidade?.atualizadoEm);
 
       const cep = unidade?.endereco?.cep;
@@ -471,6 +501,15 @@ export function validarDados(dados, { exemplos = null } = {}) {
             `telefones[${posicao}].validado`,
             entidade,
             'validado deve ser booleano (true ou false); ausencia nao equivale a confirmado'
+          );
+        }
+        if (telefone?.principal != null && typeof telefone.principal !== 'boolean') {
+          erro(
+            erros,
+            'unidades.json',
+            `telefones[${posicao}].principal`,
+            entidade,
+            'principal deve ser booleano (true ou false)'
           );
         }
         if (telefone?.validado === true && !telefone?.e164) {
@@ -620,8 +659,9 @@ export function validarDados(dados, { exemplos = null } = {}) {
   }
 
   const matrizDados = (unidadesLista ?? []).find((unidade) => unidade?.matriz === true);
-  const telefoneMatriz = (matrizDados?.telefones ?? []).find(telefoneValidado)?.e164;
+  const telefoneMatriz = telefonePrincipal(matrizDados)?.e164;
   if (
+    !rascunho &&
     site.contatoInstitucional?.telefoneE164 &&
     telefoneMatriz &&
     site.contatoInstitucional.telefoneE164 !== telefoneMatriz

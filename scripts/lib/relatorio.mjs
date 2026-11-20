@@ -2,7 +2,8 @@ import {
   telefoneValidado,
   unidadeAtivaConfirmada,
   unidadePublicavel,
-  unidadeTemServicoAprovado
+  unidadeTemServicoAprovado,
+  URL_BASE_PERMITIDA
 } from './dados.mjs';
 
 const CAMPOS_STATUS_OK = new Set([
@@ -120,6 +121,10 @@ export function gerarRelatorio({ dados, publicacao }) {
   const preparoPendente = preparos.some((preparo) => preparo.revisao?.status !== 'aprovado');
   const servicoPendente = servicos.some((servico) => servico.status !== 'aprovado');
   const unidadeNaoConfirmada = unidades.some((unidade) => !unidadeAtivaConfirmada(unidade));
+  const blocosPendentesJson = blocosPendentes(dados);
+  const textoInstitucionalPendente = blocosPendentesJson.some((bloco) =>
+    ['home', 'sobre'].includes(bloco.pagina)
+  );
 
   const bloqueios = [
     {
@@ -189,7 +194,7 @@ export function gerarRelatorio({ dados, publicacao }) {
       id: 'C-10',
       item: 'Texto institucional, história e diferenciais verificáveis',
       responsavel: 'Clínica',
-      pendente: true,
+      pendente: textoInstitucionalPendente,
       bloqueia: true
     },
     {
@@ -203,7 +208,7 @@ export function gerarRelatorio({ dados, publicacao }) {
       id: 'C-12',
       item: 'Domínio definitivo e acesso ao DNS/hospedagem',
       responsavel: 'Clínica',
-      pendente: true,
+      pendente: site.urlBase !== URL_BASE_PERMITIDA,
       bloqueia: true
     },
     {
@@ -248,7 +253,7 @@ export function gerarRelatorio({ dados, publicacao }) {
       convenios: convenios.length
     },
     bloqueios,
-    blocosPendentes: blocosPendentes(dados),
+    blocosPendentes: blocosPendentesJson,
     site: pendenciasDe({
       marca: site.marca,
       urlBase: site.urlBase,
@@ -317,6 +322,8 @@ export function gerarRelatorio({ dados, publicacao }) {
       `| ${bloqueio.id} | ${bloqueio.item} | ${bloqueio.responsavel} | ${simNao(bloqueio.pendente)} | ${simNao(bloqueio.bloqueia)} |`
     );
   }
+  linhas.push('');
+  linhas.push('> C-12: o domínio configurado em `urlBase` é verificável por dados; o acesso operacional ao DNS/hospedagem não é inferido pelo build.');
   linhas.push('');
   linhas.push('## Site');
   linhas.push('');
@@ -419,7 +426,7 @@ export function gerarRelatorio({ dados, publicacao }) {
   linhas.push('- Serviços e preparos não aprovados também ficam fora do build de produção.');
   linhas.push('- Exemplos do levantamento permanecem apenas em `dados/exemplos-briefing.json`, sem uso no build.');
   linhas.push('- `analytics` é intencionalmente `null`: o site não mede audiência nem coleta dados nesta fase (Q-09).');
-  linhas.push('- Convênios: catálogo vazio nesta rodada (Fase 4 / T033-T035 não implementada).');
+  linhas.push('- Convênios: catálogo vazio nesta rodada; a página e a matriz unidade×convênio são estruturais e só publicam com blocos aprovados.');
   linhas.push('- Blocos editoriais de `paginas.json` (home, unidades, serviços e preparo) são renderizados por tipo conhecido; tipo desconhecido derruba o build.');
   linhas.push('- Blocos `pendente` não entram na produção, são listados acima e impedem o go-live da página correspondente.');
   linhas.push('- Matriz e rodapé: o rodapé lê o registro da matriz confirmado diretamente (`validacao.status: confirmado`), mesmo sem página publicada; `site.contatoInstitucional.telefoneE164` deve ser idêntico ao telefone da matriz quando preenchido. `/contato/` só é gerada com endereço e telefone da matriz confirmados.');

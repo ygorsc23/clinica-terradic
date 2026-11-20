@@ -67,6 +67,48 @@
           "tipo": "paragrafo",
           "texto": "Laudos e imagens ficam disponíveis no portal externo de terceiros. Para acessar, tenha em mãos {{instrucoes}}.",
           "status": "aprovado"
+        },
+        {
+          "id": "aviso-externo",
+          "tipo": "paragrafo",
+          "texto": "O portal de exames é operado por terceiros. Este site não coleta dados pessoais e não tem acesso ao seu laudo. O acesso ao portal é feito com {{instrucoes}}.",
+          "status": "aprovado"
+        },
+        {
+          "id": "mapa-aviso",
+          "tipo": "paragrafo",
+          "texto": "O mapa é carregado do Google Maps somente depois que você clicar no botão. Ao carregar, o Google pode usar cookies próprios.",
+          "status": "aprovado"
+        },
+        {
+          "id": "nota-endereco-matriz",
+          "tipo": "paragrafo",
+          "texto": "O rodapé desta página mostra o endereço institucional da matriz. O endereço acima é o desta unidade.",
+          "status": "aprovado"
+        },
+        {
+          "id": "convenios-ressalva",
+          "tipo": "aviso",
+          "texto": "Confirme com a unidade quais convênios são aceitos e a cobertura junto à operadora.",
+          "status": "aprovado"
+        },
+        {
+          "id": "particular-disponivel",
+          "tipo": "paragrafo",
+          "texto": "Atendimento particular disponível nesta unidade.",
+          "status": "aprovado"
+        },
+        {
+          "id": "particular-indisponivel",
+          "tipo": "paragrafo",
+          "texto": "Atendimento particular não disponível nesta unidade.",
+          "status": "aprovado"
+        },
+        {
+          "id": "whatsapp-aviso",
+          "tipo": "paragrafo",
+          "texto": "O WhatsApp é um serviço externo: ao continuar, você sai do site da clínica.",
+          "status": "aprovado"
         }
       ]
     },
@@ -76,6 +118,11 @@
         "descricao": "Lista de unidades da Terradic com endereço confirmado, telefones, horário de funcionamento e serviços de diagnóstico por imagem disponíveis."
       },
       "blocos": [
+        {
+          "tipo": "titulo",
+          "texto": "Unidades",
+          "status": "aprovado"
+        },
         {
           "tipo": "paragrafo",
           "texto": "Cada unidade reúne endereço, telefones, horário de funcionamento e os serviços de imagem disponíveis. Confirme os dados com a unidade antes da visita.",
@@ -90,8 +137,19 @@
       },
       "blocos": [
         {
+          "tipo": "titulo",
+          "texto": "Serviços",
+          "status": "aprovado"
+        },
+        {
           "tipo": "paragrafo",
           "texto": "Exames de imagem e consultas ambulatoriais. Cada serviço informa o preparo necessário e as unidades que realizam o exame.",
+          "status": "aprovado"
+        },
+        {
+          "id": "disclaimer-servico",
+          "tipo": "aviso",
+          "texto": "Este conteúdo é informativo e não substitui consulta médica. Quando o exame exigir pedido médico, apresente-o na unidade.",
           "status": "aprovado"
         }
       ]
@@ -103,8 +161,19 @@
       },
       "blocos": [
         {
+          "tipo": "titulo",
+          "texto": "Preparo de exames",
+          "status": "aprovado"
+        },
+        {
           "tipo": "paragrafo",
           "texto": "Veja as orientações de preparo de cada exame. O preparo pode variar conforme a unidade e o equipamento: confirme as instruções com a unidade antes da visita.",
+          "status": "aprovado"
+        },
+        {
+          "id": "aviso-variacao",
+          "tipo": "aviso",
+          "texto": "O preparo pode variar conforme a unidade e o equipamento. Confirme as orientações com a unidade antes do exame.",
           "status": "aprovado"
         }
       ]
@@ -169,7 +238,6 @@
       ]
     },
     "privacidade": {
-      "publicada": false,
       "seo": {
         "titulo": "Política de privacidade | Terradic",
         "descricao": "Como o site da Terradic trata dados e privacidade: sem formulários, sem cookies próprios e sem coleta de dados pessoais ou de saúde nesta fase."
@@ -191,7 +259,19 @@
       "seo": {
         "titulo": "Página não encontrada | Terradic",
         "descricao": "A página procurada não existe ou mudou de endereço. Volte à página inicial para encontrar as unidades e os serviços de diagnóstico por imagem."
-      }
+      },
+      "blocos": [
+        {
+          "tipo": "titulo",
+          "texto": "Página não encontrada",
+          "status": "aprovado"
+        },
+        {
+          "tipo": "paragrafo",
+          "texto": "O endereço acessado não existe ou foi alterado. Use os links abaixo para continuar a navegação.",
+          "status": "aprovado"
+        }
+      ]
     }
   }
 }

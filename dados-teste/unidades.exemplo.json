@@ -30,7 +30,8 @@
           "rotulo": "Recepção",
           "e164": "+558590000001",
           "tipo": "fixo",
-          "validado": true
+          "validado": true,
+          "principal": true
         },
         {
           "rotulo": "Agendamento",

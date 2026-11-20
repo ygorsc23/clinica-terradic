@@ -96,14 +96,15 @@ function normalizarTelefone(valor) {
 
 function metaRobots(conteudo) {
   const tags = conteudo.match(/<meta\b[^>]*>/gi) ?? [];
+  const valores = [];
   for (const tag of tags) {
-    const nome = tag.match(/\bname\s*=\s*["']([^"']+)["']/i)?.[1] ?? '';
-    if (nome.toLowerCase() !== 'robots') {
+    const nome = (tag.match(/\bname\s*=\s*["']([^"']+)["']/i)?.[1] ?? '').toLowerCase();
+    if (!['robots', 'googlebot', 'bingbot'].includes(nome)) {
       continue;
     }
-    return tag.match(/\bcontent\s*=\s*["']([^"']*)["']/i)?.[1] ?? '';
+    valores.push(tag.match(/\bcontent\s*=\s*["']([^"']*)["']/i)?.[1] ?? '');
   }
-  return '';
+  return valores;
 }
 
 function compararEnderecoNap({ erros, arquivo, bloco, esperado, rotulo, clinica = null }) {
@@ -113,6 +114,8 @@ function compararEnderecoNap({ erros, arquivo, bloco, esperado, rotulo, clinica 
   const numero = extrairAtributo(tag, 'data-nap-numero');
   const bairro = extrairAtributo(tag, 'data-nap-bairro');
   const cep = extrairAtributo(tag, 'data-nap-cep');
+  const cidade = extrairAtributo(tag, 'data-nap-cidade');
+  const uf = extrairAtributo(tag, 'data-nap-uf');
   const telefone = extrairAtributo(tag, 'data-nap-telefone');
 
   if (esperado) {
@@ -130,6 +133,12 @@ function compararEnderecoNap({ erros, arquivo, bloco, esperado, rotulo, clinica 
     }
     if (esperado.cep && normalizarDigitos(cep) !== normalizarDigitos(esperado.cep)) {
       adicionar(erros, 'nap.divergencia', arquivo, `${rotulo}: CEP difere entre HTML ("${cep}") e dados ("${esperado.cep}")`);
+    }
+    if (esperado.cidade && normalizarTexto(cidade) !== normalizarTexto(esperado.cidade)) {
+      adicionar(erros, 'nap.divergencia', arquivo, `${rotulo}: cidade difere entre HTML ("${cidade}") e dados ("${esperado.cidade}")`);
+    }
+    if (esperado.uf && normalizarTexto(uf) !== normalizarTexto(esperado.uf)) {
+      adicionar(erros, 'nap.divergencia', arquivo, `${rotulo}: UF difere entre HTML ("${uf}") e dados ("${esperado.uf}")`);
     }
   }
 
@@ -160,6 +169,12 @@ function compararEnderecoNap({ erros, arquivo, bloco, esperado, rotulo, clinica 
         arquivo,
         'logradouro do HTML não corresponde ao streetAddress do JSON-LD'
       );
+    }
+    if (cidade && normalizarTexto(clinica.address?.addressLocality) !== normalizarTexto(cidade)) {
+      adicionar(erros, 'nap.divergencia', arquivo, 'cidade do HTML não corresponde ao addressLocality do JSON-LD');
+    }
+    if (uf && normalizarTexto(clinica.address?.addressRegion) !== normalizarTexto(uf)) {
+      adicionar(erros, 'nap.divergencia', arquivo, 'UF do HTML não corresponde ao addressRegion do JSON-LD');
     }
   }
 
@@ -249,15 +264,16 @@ export const REGRAS = {
       }
 
       const robots = metaRobots(conteudo);
+      const temNoindex = robots.some((valor) => valor.toLowerCase().includes('noindex'));
       if (producao) {
-        if (rota !== '/404.html' && robots.includes('noindex')) {
+        if (rota !== '/404.html' && temNoindex) {
           adicionar(erros, 'html.basico', arquivo, 'build de producao nao pode ter noindex em pagina publicavel');
         }
         if (conteudo.includes('VERSÃO DE REVISÃO')) {
           adicionar(erros, 'html.basico', arquivo, 'faixa de revisão encontrada em build de produção');
         }
       } else {
-        if (!robots.includes('noindex')) {
+        if (!temNoindex) {
           adicionar(erros, 'html.basico', arquivo, 'build de rascunho exige robots noindex');
         }
         if (!conteudo.includes('VERSÃO DE REVISÃO')) {
@@ -523,11 +539,11 @@ export const REGRAS = {
   'nap.divergencia': ({ arquivos, napEsperado = null }) => {
     const erros = [];
     for (const [arquivo, conteudo] of htmls(arquivos)) {
-      const blocoUnidade = conteudo.match(/<address\b[^>]*data-nap-escopo="unidade"[^>]*>[\s\S]*?<\/address>/i)?.[0];
-      const blocoMatriz = conteudo.match(/<address\b[^>]*data-nap-escopo="matriz"[^>]*>[\s\S]*?<\/address>/i)?.[0];
-      const blocoTelefone = conteudo.match(/<p\b[^>]*data-nap-escopo="institucional"[^>]*>[\s\S]*?<\/p>/i)?.[0];
+      const blocosUnidade = [...conteudo.matchAll(/<address\b[^>]*data-nap-escopo="unidade"[^>]*>[\s\S]*?<\/address>/gi)].map((resultado) => resultado[0]);
+      const blocosMatriz = [...conteudo.matchAll(/<address\b[^>]*data-nap-escopo="matriz"[^>]*>[\s\S]*?<\/address>/gi)].map((resultado) => resultado[0]);
+      const blocosTelefone = [...conteudo.matchAll(/<p\b[^>]*data-nap-escopo="institucional"[^>]*>[\s\S]*?<\/p>/gi)].map((resultado) => resultado[0]);
 
-      if (blocoUnidade) {
+      for (const blocoUnidade of blocosUnidade) {
         const jsonLd = [...conteudo.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
           .map((resultado) => {
             try {
@@ -567,18 +583,20 @@ export const REGRAS = {
 
       if (napEsperado) {
         if (napEsperado.matriz) {
-          if (!blocoMatriz) {
+          if (blocosMatriz.length === 0) {
             adicionar(erros, 'nap.divergencia', arquivo, 'rodapé sem o endereço institucional da matriz esperado');
           } else {
-            compararEnderecoNap({
-              erros,
-              arquivo,
-              bloco: blocoMatriz,
-              rotulo: 'rodapé',
-              esperado: napEsperado.matriz
-            });
+            for (const blocoMatriz of blocosMatriz) {
+              compararEnderecoNap({
+                erros,
+                arquivo,
+                bloco: blocoMatriz,
+                rotulo: 'rodapé',
+                esperado: napEsperado.matriz
+              });
+            }
           }
-        } else if (blocoMatriz) {
+        } else if (blocosMatriz.length > 0) {
           adicionar(
             erros,
             'nap.divergencia',
@@ -588,36 +606,38 @@ export const REGRAS = {
         }
 
         if (napEsperado.telefoneInstitucional) {
-          if (!blocoTelefone) {
+          if (blocosTelefone.length === 0) {
             adicionar(erros, 'nap.divergencia', arquivo, 'rodapé sem o telefone institucional esperado');
           } else {
-            const tag = blocoTelefone.match(/<p\b[^>]*>/)?.[0] ?? '';
-            const telefoneOculto = extrairAtributo(tag, 'data-nap-telefone');
-            const telefoneVisivel = blocoTelefone.match(/<a\b[^>]*href="tel:[^"]*"[^>]*>([\s\S]*?)<\/a>/)?.[1] ?? '';
-            if (
-              normalizarTelefone(telefoneOculto) !==
-              normalizarTelefone(napEsperado.telefoneInstitucional)
-            ) {
-              adicionar(
-                erros,
-                'nap.divergencia',
-                arquivo,
-                `telefone institucional oculto ("${telefoneOculto}") diverge de site.contatoInstitucional`
-              );
-            }
-            if (
-              normalizarTelefone(telefoneVisivel) !==
-              normalizarTelefone(napEsperado.telefoneInstitucional)
-            ) {
-              adicionar(
-                erros,
-                'nap.divergencia',
-                arquivo,
-                `telefone institucional visível ("${telefoneVisivel}") diverge de site.contatoInstitucional`
-              );
+            for (const blocoTelefone of blocosTelefone) {
+              const tag = blocoTelefone.match(/<p\b[^>]*>/)?.[0] ?? '';
+              const telefoneOculto = extrairAtributo(tag, 'data-nap-telefone');
+              const telefoneVisivel = blocoTelefone.match(/<a\b[^>]*href="tel:[^"]*"[^>]*>([\s\S]*?)<\/a>/)?.[1] ?? '';
+              if (
+                normalizarTelefone(telefoneOculto) !==
+                normalizarTelefone(napEsperado.telefoneInstitucional)
+              ) {
+                adicionar(
+                  erros,
+                  'nap.divergencia',
+                  arquivo,
+                  `telefone institucional oculto ("${telefoneOculto}") diverge de site.contatoInstitucional`
+                );
+              }
+              if (
+                normalizarTelefone(telefoneVisivel) !==
+                normalizarTelefone(napEsperado.telefoneInstitucional)
+              ) {
+                adicionar(
+                  erros,
+                  'nap.divergencia',
+                  arquivo,
+                  `telefone institucional visível ("${telefoneVisivel}") diverge de site.contatoInstitucional`
+                );
+              }
             }
           }
-        } else if (blocoTelefone) {
+        } else if (blocosTelefone.length > 0) {
           adicionar(
             erros,
             'nap.divergencia',
@@ -636,7 +656,10 @@ export const REGRAS = {
     }
     const erros = [];
     for (const [arquivo, conteudo] of htmls(arquivos)) {
-      if (arquivo !== '404.html' && metaRobots(conteudo).includes('noindex')) {
+      if (
+        arquivo !== '404.html' &&
+        metaRobots(conteudo).some((valor) => valor.toLowerCase().includes('noindex'))
+      ) {
         adicionar(erros, 'artefato.producao', arquivo, 'dist de produção não pode conter meta robots noindex');
       }
       if (conteudo.includes('VERSÃO DE REVISÃO')) {

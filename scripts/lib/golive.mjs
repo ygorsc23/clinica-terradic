@@ -1,7 +1,9 @@
 import { ITENS_NAV } from './paginas.mjs';
 import {
+  preparoAprovado,
   servicoAprovado,
   telefoneValidado,
+  telefonesPrincipais,
   unidadeTemServicoAprovado
 } from './dados.mjs';
 
@@ -9,7 +11,6 @@ export const ROTAS_ESTRUTURAIS_GO_LIVE = [
   { rota: '/', rotulo: 'pagina inicial' },
   { rota: '/unidades/', rotulo: 'indice de unidades' },
   { rota: '/servicos/', rotulo: 'indice de servicos' },
-  { rota: '/preparo-de-exames/', rotulo: 'preparo de exames' },
   { rota: '/convenios-e-particular/', rotulo: 'convenios e atendimento particular' },
   { rota: '/sobre/', rotulo: 'sobre e responsavel tecnico' },
   { rota: '/contato/', rotulo: 'contato' },
@@ -105,6 +106,24 @@ export function validarGoLive({ dados, publicacao, rotas }) {
     }
   }
 
+  // Preparos: catálogo aprovado e rota somente quando houver preparo publicado.
+  const preparosAprovados = (dados.preparos?.preparos ?? []).filter(preparoAprovado);
+  if (preparosAprovados.length === 0) {
+    erro(erros, 'preparos.json', 'aprovados', 'site', 'nenhum preparo aprovado para publicar');
+  }
+  if (
+    (publicacao.preparos ?? []).length > 0 &&
+    !rotasGeradas.has('/preparo-de-exames/')
+  ) {
+    erro(
+      erros,
+      'rotas',
+      '/preparo-de-exames/',
+      'site',
+      'rota estrutural obrigatoria nao gerada: preparo de exames'
+    );
+  }
+
   // B1 — preparo pendente exigido por servico publicavel.
   const servicosPublicados = publicacao.servicos ?? [];
   const idsServicos = new Set(servicosPublicados.map((servico) => servico.id));
@@ -164,6 +183,25 @@ export function validarGoLive({ dados, publicacao, rotas }) {
     );
   }
 
+  if (site.identidadeVisual?.status !== 'oficial') {
+    erro(
+      erros,
+      'site.json',
+      'identidadeVisual.status',
+      'site',
+      'go-live exige identidade visual oficial ou aceite formal registrado'
+    );
+  }
+  if (site.privacidade?.politicaPublicada !== true) {
+    erro(
+      erros,
+      'site.json',
+      'privacidade.politicaPublicada',
+      'site',
+      'política de privacidade não publicada'
+    );
+  }
+
   const matriz = (dados.unidades?.unidades ?? []).find((unidade) => unidade?.matriz === true);
   if (!matriz) {
     erro(erros, 'unidades.json', 'matriz', 'site', 'nenhuma unidade marcada como matriz');
@@ -186,7 +224,17 @@ export function validarGoLive({ dados, publicacao, rotas }) {
     if (!matriz.uf) {
       erro(erros, 'unidades.json', 'uf', entidade, 'UF da matriz ausente para o rodape');
     }
-    const telefoneMatriz = (matriz.telefones ?? []).find(telefoneValidado)?.e164;
+    const telefonesPrincipaisMatriz = telefonesPrincipais(matriz).filter(telefoneValidado);
+    if (telefonesPrincipaisMatriz.length !== 1) {
+      erro(
+        erros,
+        'unidades.json',
+        'telefones',
+        entidade,
+        'a matriz exige exatamente um telefone principal validado para o rodape institucional'
+      );
+    }
+    const telefoneMatriz = telefonesPrincipaisMatriz[0]?.e164;
     if (matriz.validacao?.status !== 'confirmado') {
       erro(
         erros,
@@ -194,15 +242,6 @@ export function validarGoLive({ dados, publicacao, rotas }) {
         'matriz-confirmada',
         entidade,
         'a matriz precisa ter cadastro confirmado para o rodape institucional'
-      );
-    }
-    if (!telefoneMatriz) {
-      erro(
-        erros,
-        'unidades.json',
-        'telefones',
-        entidade,
-        'a matriz precisa de ao menos um telefone validado para o rodape institucional'
       );
     }
     if (

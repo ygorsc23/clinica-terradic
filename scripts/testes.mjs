@@ -919,3 +919,177 @@ test('R3-B: privacidade é condicional a publicada e a blocos aprovados', async 
   const aprovadaProd = await paginasDe(dados);
   assert.ok(aprovadaProd.some((pagina) => pagina.rota === '/politica-de-privacidade/'));
 });
+
+
+// ---------- Rodada 3.5: correções da revisão estática ----------
+
+test('R35-M3: cross-check do telefone institucional não roda no rascunho', () => {
+  const dados = dadosComUnidadesAtivas();
+  dados.site.contatoInstitucional = {
+    email: 'contato@terradic.invalid',
+    telefoneE164: '+558599999999'
+  };
+  const errosRascunho = validarDados(dados, { exemplos, rascunho: true });
+  assert.ok(!temCodigo(errosRascunho, 'site.json:contatoInstitucional.telefoneE164:site'));
+  const errosProducao = validarDados(dados, { exemplos, rascunho: false });
+  assert.ok(temCodigo(errosProducao, 'site.json:contatoInstitucional.telefoneE164:site'));
+});
+
+test('R35-M4: catálogo sem preparo aprovado tem bloqueio dedicado e não exige rota', () => {
+  const dados = dadosComUnidadesAtivas();
+  const publicacao = resolverPublicacao(dados, { rascunho: false });
+  const erros = validarGoLive({
+    dados,
+    publicacao,
+    rotas: planejarRotas(dados, publicacao, { rascunho: false }).map((pagina) => pagina.rota)
+  });
+  assert.ok(erros.some((erro) => erro.codigo === 'preparos.json:aprovados:site'));
+  assert.ok(!erros.some((erro) => erro.codigo === 'rotas:/preparo-de-exames/:site'));
+});
+
+test('R35-M1: templates não contêm texto editorial longo fora de blocos', () => {
+  const permitidos = new Set([
+    'Pular para o conteúdo',
+    'Portal de exames externo · abre em nova aba',
+    'Abrir a localização no Google Maps',
+    'VERSÃO DE REVISÃO — DADOS NÃO CONFIRMADOS.',
+    'Identidade visual provisória, derivada de flyer de campanha. Não publicar.'
+  ]);
+  const achados = [];
+  for (const [nome, html] of templates) {
+    const semComentarios = html.replace(/<!--[\s\S]*?-->/g, ' ');
+    for (const no of semComentarios.replace(/<[^>]+>/g, '\n').split('\n')) {
+      const texto = no.replace(/\s+/g, ' ').trim();
+      if (!texto || texto.includes('{{') || permitidos.has(texto)) {
+        continue;
+      }
+      if (texto.length > 40) {
+        achados.push(`${nome}: ${texto}`);
+      }
+    }
+  }
+  assert.deepEqual(achados, []);
+});
+
+test('R35-M2: NAP compara número, cidade e UF e falha se apenas o número mudar', async () => {
+  const dados = dadosComMatrizCompleta();
+  const publicacao = resolverPublicacao(dados, { rascunho: false });
+  const home = htmlDaPagina(await paginasDe(dados), '/');
+  const esperado = napEsperadoDe(dados, publicacao);
+
+  const numeroErrado = home.replace('data-nap-numero="1200"', 'data-nap-numero="1201"');
+  const errosNumero = rodar('nap.divergencia', { 'index.html': numeroErrado }, true, {
+    napEsperado: esperado
+  });
+  assert.ok(errosNumero.some((erro) => erro.detalhe.includes('rodapé: numero')));
+
+  const cidadeErrada = home.replace('data-nap-cidade="Fortaleza"', 'data-nap-cidade="Caucaia"');
+  const errosCidade = rodar('nap.divergencia', { 'index.html': cidadeErrada }, true, {
+    napEsperado: esperado
+  });
+  assert.ok(errosCidade.some((erro) => erro.detalhe.includes('rodapé: cidade')));
+});
+
+test('R35-M5: ressalva de convênios sem lista não afirma data de atualização', async () => {
+  const dados = dadosComUnidadesAtivas();
+  dados.convenios = { versao: 1, atualizadoEm: '2026-11-20', convenios: [] };
+  const html = htmlDaPagina(await paginasDe(dados, { rascunho: true }), '/unidades/teste-centro/');
+  assert.ok(html.includes('Confirme com a unidade'));
+  assert.ok(!html.includes('Lista atualizada em'));
+});
+
+test('R35-B2: noindex é detectado em googlebot, bingbot e com NOINDEX', () => {
+  const googlebot = rodar(
+    'artefato.producao',
+    { 'index.html': '<meta name="googlebot" content="NOINDEX">' },
+    true
+  );
+  assert.ok(googlebot.some((erro) => erro.detalhe.includes('noindex')));
+
+  const bingbot = rodar(
+    'artefato.producao',
+    { 'index.html': '<meta content="noindex" name="bingbot">' },
+    true
+  );
+  assert.ok(bingbot.some((erro) => erro.detalhe.includes('noindex')));
+
+  const segundaMeta = rodar(
+    'artefato.producao',
+    {
+      'index.html':
+        '<meta name="robots" content="index, follow"><meta name="robots" content="NOINDEX">'
+    },
+    true
+  );
+  assert.ok(segundaMeta.some((erro) => erro.detalhe.includes('noindex')));
+});
+
+test('R35-B3: nap.divergencia percorre todas as ocorrências de data-nap-escopo', async () => {
+  const dados = dadosComMatrizCompleta();
+  const publicacao = resolverPublicacao(dados, { rascunho: false });
+  const home = htmlDaPagina(await paginasDe(dados), '/');
+  const esperado = napEsperadoDe(dados, publicacao);
+  const segundoTelefone =
+    '<p data-nap-escopo="institucional" data-nap-telefone="+558590000099"><a href="tel:+558590000099">(85) 9000-0099</a></p>';
+  const erros = rodar(
+    'nap.divergencia',
+    { 'index.html': home + segundoTelefone },
+    true,
+    { napEsperado: esperado }
+  );
+  assert.ok(erros.some((erro) => erro.detalhe.includes('telefone institucional')));
+});
+
+test('R35-B4: C-10/C-12 são calculados e o relatório não repete F4 como não implementada', () => {
+  const dados = dadosComUnidadesAtivas();
+  dados.paginas.paginas.sobre.blocos.forEach((bloco) => {
+    bloco.status = 'aprovado';
+  });
+  const relatorio = gerarRelatorio({
+    dados,
+    publicacao: resolverPublicacao(dados, { rascunho: false })
+  });
+  assert.equal(relatorio.json.bloqueios.find((item) => item.id === 'C-10').pendente, false);
+  assert.equal(relatorio.json.bloqueios.find((item) => item.id === 'C-12').pendente, false);
+  assert.ok(!relatorio.markdown.includes('Fase 4 / T033-T035 não implementada'));
+});
+
+test('R35-B4: C-11 e C-14 passam a bloquear o go-live', () => {
+  const publicacao = resolverPublicacao(dadosBase, { rascunho: false });
+  const erros = validarGoLive({
+    dados: dadosBase,
+    publicacao,
+    rotas: planejarRotas(dadosBase, publicacao, { rascunho: false }).map((pagina) => pagina.rota)
+  });
+  assert.ok(erros.some((erro) => erro.codigo === 'site.json:identidadeVisual.status:site'));
+  assert.ok(erros.some((erro) => erro.codigo === 'site.json:privacidade.politicaPublicada:site'));
+});
+
+test('R35-B5: rodapé usa o telefone principal explícito da matriz', async () => {
+  const dados = dadosComMatrizCompleta();
+  const home = htmlDaPagina(await paginasDe(dados), '/');
+  assert.ok(home.includes('(85) 9000-0001'));
+  assert.ok(!home.includes('(85) 9000-0002</a>'));
+
+  const duplicado = structuredClone(dados);
+  duplicado.unidades.unidades[0].telefones[1].principal = true;
+  const publicacao = resolverPublicacao(duplicado, { rascunho: false });
+  const erros = validarGoLive({
+    dados: duplicado,
+    publicacao,
+    rotas: planejarRotas(duplicado, publicacao, { rascunho: false }).map((pagina) => pagina.rota)
+  });
+  assert.ok(erros.some((erro) => erro.codigo === 'unidades.json:telefones:teste-centro'));
+
+  const semPrincipal = structuredClone(dados);
+  semPrincipal.unidades.unidades[0].telefones.forEach((telefone) => {
+    telefone.principal = false;
+  });
+  const publicacaoSem = resolverPublicacao(semPrincipal, { rascunho: false });
+  const errosSem = validarGoLive({
+    dados: semPrincipal,
+    publicacao: publicacaoSem,
+    rotas: planejarRotas(semPrincipal, publicacaoSem, { rascunho: false }).map((pagina) => pagina.rota)
+  });
+  assert.ok(errosSem.some((erro) => erro.codigo === 'unidades.json:telefones:teste-centro'));
+});

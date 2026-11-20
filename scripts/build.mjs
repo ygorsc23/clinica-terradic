@@ -11,7 +11,7 @@ import {
   carregarExemplosBriefing,
   carregarJson,
   resolverPublicacao,
-  telefoneValidado,
+  telefonePrincipal,
   validarDados
 } from './lib/dados.mjs';
 import { carregarTemplates } from './lib/render.mjs';
@@ -190,8 +190,7 @@ function criarNapEsperado(dados, publicacao) {
           uf: matrizConfirmada.uf ?? ''
         }
       : null,
-    telefoneInstitucional:
-      (matrizConfirmada?.telefones ?? []).find(telefoneValidado)?.e164 ?? null
+    telefoneInstitucional: telefonePrincipal(matrizConfirmada)?.e164 ?? null
   };
 }
 
@@ -228,7 +227,7 @@ export async function executarBuild({
 
   const dados = await carregarDados(raiz, { rascunho, avisar });
   const exemplos = await carregarExemplosBriefing(raiz);
-  const errosDados = validarDados(dados, { exemplos });
+  const errosDados = validarDados(dados, { exemplos, rascunho });
   const urlBase = baseUrl || dados.site.urlBase;
 
   if (baseUrl && baseUrl !== URL_BASE_PERMITIDA) {

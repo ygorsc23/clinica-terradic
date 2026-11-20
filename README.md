@@ -123,6 +123,9 @@ JSON.
   menos um telefone com `validado: true` em E.164. `validado` ausente ou não booleano é erro.
 - Unidade publicável também exige ao menos um serviço `aprovado` entre os serviços informados.
 - Blocos editoriais exigem `status` `pendente|aprovado`; blocos pendentes não entram na produção.
+- O telefone institucional da matriz é o marcado com `principal: true`; o go-live exige exatamente
+  um principal validado. O cruzamento com `site.contatoInstitucional.telefoneE164` roda apenas em
+  produção/go-live, nunca sobre o dataset de teste do rascunho.
 - Erros acumulados no formato `arquivo:campo:entidade`, com saída diferente de zero.
 - Gates: unidade publicável, serviço aprovado, preparo aprovado. Em `--rascunho` viram avisos e
   entram a faixa de revisão e o `noindex`.
@@ -139,6 +142,8 @@ O build de produção é tolerante para permitir revisão local. A publicação 
 falha com a lista completa de bloqueios (não para no primeiro):
 
 - `preparos.json:revisao.status:<slug>` para preparo não aprovado exigido por serviço publicável;
+- `preparos.json:aprovados:site` quando não há nenhum preparo aprovado (a rota de preparo só é
+  exigida quando há preparo publicado);
 - `servicos.json:aprovados:site` quando não há nenhum serviço aprovado;
 - `unidades.json:servicos:<slug>` para unidade ativa sem serviço aprovado;
 - `unidades.json:publicadas:site` quando não há nenhuma unidade publicável;
@@ -147,9 +152,10 @@ falha com a lista completa de bloqueios (não para no primeiro):
   convênios, sobre, contato, 404);
 - `paginas.json:blocos:<pagina>` quando uma página publicável tem bloco pendente;
 - `site.json:responsavelTecnico.*` e `site.json:contatoInstitucional.*` para identificação incompleta;
+- `site.json:identidadeVisual.status:site` e `site.json:privacidade.politicaPublicada:site` para C-11/C-14;
 - `unidades.json:endereco.*:<slug-da-matriz>` para endereço institucional incompleto;
 - `unidades.json:matriz-confirmada:<slug>` quando a matriz não tem cadastro confirmado;
-- `unidades.json:telefones:<slug>` quando a matriz não tem telefone validado.
+- `unidades.json:telefones:<slug>` quando a matriz não tem exatamente um telefone principal validado.
 
 O rodapé mantém os blocos condicionais (não inventa dado), mas o go-live não passa sem RT/CRM,
 especialidade, contato institucional e endereço/telefone da matriz. T013 está registrada como
@@ -165,15 +171,21 @@ estiverem confirmados.
 A checagem `nap.divergencia` compara atributos ocultos (`data-nap-*`) **e** o texto visível:
 
 - texto visível: entidades decodificadas, sem acentos, minúsculo, pontuação trocada por espaço e
-  espaços colapsados (logradouro e bairro);
+  espaços colapsados (logradouro, número, bairro, cidade e UF);
 - CEP: apenas dígitos (`60000-000` e `60000000` são iguais);
 - telefone: apenas dígitos, descartando o prefixo `55` do E.164; o texto formatado de um `tel:`
   visível precisa corresponder ao telefone do JSON-LD.
+- Todas as ocorrências de `data-nap-escopo` da página são percorridas (endereço da unidade, matriz
+  no conteúdo/rodapé e telefone institucional), não só a primeira.
 
 A página da unidade informa que o rodapé exibe o endereço institucional da matriz, não o da unidade.
 O rodapé também tem `data-nap-*`: `data-nap-escopo="matriz"` no endereço e
 `data-nap-escopo="institucional"` no telefone, comparados com a matriz confirmada e com
 `site.contatoInstitucional`.
+
+A checagem de `noindex` considera `<meta name="robots">`, `googlebot` e `bingbot`, em qualquer
+ordem de atributos e sem diferenciar maiúsculas. O `sitemap.xml` do `dist/` existente também é
+auditado, e `slugsTeste` é procurado no sitemap, não só no HTML.
 
 ## Texto editorial x rótulo de interface
 
@@ -184,9 +196,15 @@ A regra de classificação usada na migração para `paginas.json`:
 - **Rótulo de interface** (ex.: "Pular para o conteúdo", "Menu", "abre em nova aba", "Ver unidade")
   pode permanecer no template.
 
-Na home, a marca, o hero, os títulos e textos das seções e o texto do portal vêm de blocos com
-`id`. O cabeçalho usa `marca-subtitulo`; as seções usam os ids `servicos-*`, `unidades-*` e
-`portal-*`. Nenhuma frase editorial nova foi criada: o conteúdo foi apenas movido dos templates.
+Na home, a marca, o hero, os títulos e textos das seções, o texto do portal, o aviso de ambiente
+externo, a explicação do mapa, a ressalva de convênios, os avisos de particular/WhatsApp e a nota
+da matriz vêm de blocos com `id`. O cabeçalho usa `marca-subtitulo`; as seções usam os ids
+`servicos-*`, `unidades-*`, `portal-*` e correlatos. Os H1 de unidades/serviços/preparo, o
+disclaimer de serviço e a copy do 404 também são blocos. Nenhuma frase editorial nova foi criada:
+o conteúdo foi apenas movido dos templates.
+
+O teste `npm test` varre os templates e falha se houver nó de texto longo fora de `{{...}}` que
+não esteja na lista de rótulos de interface/revisão permitidos.
 
 ## Privacidade
 
@@ -240,6 +258,15 @@ Cada regra do `--check` e do validador tem um teste que comprova a falha:
 | Convênios atualizadoEm | "R3-A7: convênio exige atualizadoEm válido" |
 | Robustez do artefato | "R3-A8: noindex é detectado...", "R3-A8: sitemap de produção..." |
 | F4 | "R3-B: F4 gera sobre...", "R3-B: /contato/...", "R3-B: /convenios...", "R3-B: /sobre/...", "R3-B: privacidade..." |
+| Rascunho x telefone institucional real | "R35-M3: cross-check do telefone institucional não roda no rascunho" |
+| Preparo aprovado/rota | "R35-M4: catálogo sem preparo aprovado tem bloqueio dedicado e não exige rota" |
+| Texto editorial em template | "R35-M1: templates não contêm texto editorial longo fora de blocos" |
+| NAP número/cidade/UF | "R35-M2: NAP compara número, cidade e UF..." |
+| Convênios sem lista | "R35-M5: ressalva de convênios sem lista não afirma data de atualização" |
+| noindex googlebot/bingbot | "R35-B2: noindex é detectado em googlebot, bingbot e com NOINDEX" |
+| Múltiplos data-nap | "R35-B3: nap.divergencia percorre todas as ocorrências de data-nap-escopo" |
+| Relatório C-10/C-12/C-11/C-14 | "R35-B4: C-10/C-12 são calculados...", "R35-B4: C-11 e C-14 passam a bloquear o go-live" |
+| Telefone principal | "R35-B5: rodapé usa o telefone principal explícito da matriz" |
 
 ## Identidade visual provisória
 

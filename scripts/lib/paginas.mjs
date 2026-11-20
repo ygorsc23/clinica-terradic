@@ -5,6 +5,7 @@ import {
   formatarTelefone,
   preparoAprovado,
   servicoAprovado,
+  telefonePrincipal,
   telefoneValidado,
   unidadePublicavel
 } from './dados.mjs';
@@ -31,12 +32,6 @@ export const ITENS_NAV = [
 
 function frag(ctx, chave, opcoes = {}) {
   return modelo(template(ctx.templates, chave), opcoes);
-}
-
-function blocosDaPagina(ctx, chave) {
-  const blocos = ctx.dados.paginas.paginas[chave]?.blocos ?? [];
-  const visiveis = ctx.rascunho ? blocos : blocos.filter((bloco) => bloco?.status === 'aprovado');
-  return renderizarBlocos(visiveis, ctx.templates);
 }
 
 function blocoPorId(ctx, pagina, id) {
@@ -79,9 +74,9 @@ function montarCta(ctx, classeBotao = 'botao-primario') {
 }
 
 function montarAvisoExterno(ctx) {
-  return frag(ctx, 'parciais/aviso-externo', {
-    texto: { instrucoes: textoInstrucoes(ctx) }
-  });
+  const bloco = blocoPorId(ctx, 'home', 'aviso-externo');
+  const texto = escapar(bloco?.texto ?? '').replace('{{instrucoes}}', escapar(textoInstrucoes(ctx)));
+  return frag(ctx, 'parciais/aviso-externo', { fragmento: { texto } });
 }
 
 function montarPill(ctx, unidade) {
@@ -212,7 +207,10 @@ function formatarData(data) {
   return `${dia}/${mes}/${ano}`;
 }
 
-function dataAtualizacaoConvenios(data) {
+function dataAtualizacaoConvenios(data, quantidade = 0) {
+  if (!quantidade) {
+    return '';
+  }
   const formatada = formatarData(data);
   return formatada ? `Lista atualizada em ${formatada}.` : 'Data de atualização não informada.';
 }
@@ -258,7 +256,7 @@ function matrizRodape(dados) {
 
 function telefoneInstitucionalMatriz(dados) {
   const matriz = matrizRodape(dados);
-  return (matriz?.telefones ?? []).find(telefoneValidado)?.e164 ?? '';
+  return telefonePrincipal(matriz)?.e164 ?? '';
 }
 
 export function tituloUnidade(unidade) {
@@ -501,10 +499,12 @@ function paginaUnidades(ctx) {
     { rotulo: 'Início', url: '/' },
     { rotulo: 'Unidades', url: '/unidades/' }
   ];
+  const { titulo, blocos } = conteudoEditorial(ctx, 'unidades');
   const conteudo = frag(ctx, 'unidades', {
+    texto: { tituloPagina: titulo },
     fragmento: {
       breadcrumb: montarBreadcrumb(ctx, itens),
-      blocos: blocosDaPagina(ctx, 'unidades'),
+      blocos,
       lista: montarListaUnidades(ctx),
       ctaExames: montarCta(ctx),
       avisoExterno: montarAvisoExterno(ctx)
@@ -586,7 +586,10 @@ function paginaUnidade(ctx, unidade) {
   const blocoWhatsapp =
     whatsapp?.e164 && whatsapp?.validado === true
       ? frag(ctx, 'parciais/whatsapp-unidade', {
-          texto: { numero: String(whatsapp.e164).replace(/\D/g, '') }
+          texto: {
+            numero: String(whatsapp.e164).replace(/\D/g, ''),
+            avisoWhatsapp: blocoPorId(ctx, 'home', 'whatsapp-aviso')?.texto ?? ''
+          }
         })
       : '';
 
@@ -624,7 +627,13 @@ function paginaUnidade(ctx, unidade) {
   }
 
   const avisoConvenios = frag(ctx, 'parciais/convenios-aviso', {
-    texto: { dataAtualizacao: dataAtualizacaoConvenios(ctx.dados.convenios?.atualizadoEm) }
+    texto: {
+      texto: blocoPorId(ctx, 'home', 'convenios-ressalva')?.texto ?? '',
+      dataAtualizacao: dataAtualizacaoConvenios(
+        ctx.dados.convenios?.atualizadoEm,
+        (unidade.convenios ?? []).length
+      )
+    }
   });
   let blocoConvenios = '';
   const conveniosIds = unidade.convenios ?? [];
@@ -641,9 +650,13 @@ function paginaUnidade(ctx, unidade) {
 
   let blocoParticular = '';
   if (unidade.atendimentoParticular === true) {
-    blocoParticular = frag(ctx, 'parciais/particular-disponivel');
+    blocoParticular = frag(ctx, 'parciais/particular-disponivel', {
+      texto: { texto: blocoPorId(ctx, 'home', 'particular-disponivel')?.texto ?? '' }
+    });
   } else if (unidade.atendimentoParticular === false) {
-    blocoParticular = frag(ctx, 'parciais/particular-indisponivel');
+    blocoParticular = frag(ctx, 'parciais/particular-indisponivel', {
+      texto: { texto: blocoPorId(ctx, 'home', 'particular-indisponivel')?.texto ?? '' }
+    });
   } else if (ctx.rascunho) {
     blocoParticular = frag(ctx, 'parciais/nota-revisao');
   }
@@ -652,11 +665,13 @@ function paginaUnidade(ctx, unidade) {
   if (temEndereco) {
     const consulta = enderecoEmLinha(unidade);
     const codificada = encodeURIComponent(consulta);
+    const avisoMapa = blocoPorId(ctx, 'home', 'mapa-aviso')?.texto ?? '';
     blocoMapa = frag(ctx, 'parciais/mapa-fachada', {
       texto: {
         fonte: `https://www.google.com/maps?q=${codificada}&output=embed`,
         fonteLink: `https://www.google.com/maps/search/?api=1&query=${codificada}`,
-        titulo: `Mapa de ${unidade.nomeExibicao}`
+        titulo: `Mapa de ${unidade.nomeExibicao}`,
+        avisoMapa
       }
     });
   }
@@ -678,7 +693,12 @@ function paginaUnidade(ctx, unidade) {
       pill: montarPill(ctx, unidade),
       seloRevisao,
       blocoEndereco,
-      notaEnderecoMatriz: temEndereco && temEnderecoMatriz ? frag(ctx, 'parciais/nota-endereco-matriz') : '',
+      notaEnderecoMatriz:
+        temEndereco && temEnderecoMatriz
+          ? frag(ctx, 'parciais/nota-endereco-matriz', {
+              texto: { texto: blocoPorId(ctx, 'home', 'nota-endereco-matriz')?.texto ?? '' }
+            })
+          : '',
       blocoTelefones,
       blocoWhatsapp,
       blocoEmail,
@@ -716,10 +736,14 @@ function paginaServicos(ctx) {
     { rotulo: 'Início', url: '/' },
     { rotulo: 'Serviços', url: '/servicos/' }
   ];
+  const { titulo, blocos } = conteudoEditorial(ctx, 'servicos', {
+    excluirIds: ['disclaimer-servico']
+  });
   const conteudo = frag(ctx, 'servicos', {
+    texto: { tituloPagina: titulo },
     fragmento: {
       breadcrumb: montarBreadcrumb(ctx, itens),
-      blocos: blocosDaPagina(ctx, 'servicos'),
+      blocos,
       lista: montarListaServicos(ctx),
       ctaExames: montarCta(ctx),
       avisoExterno: montarAvisoExterno(ctx)
@@ -822,6 +846,11 @@ function paginaServico(ctx, servico) {
     { rotulo: servico.nome, url: `/servicos/${servico.slug}/` }
   ];
 
+  const blocoDisclaimer = blocoPorId(ctx, 'servicos', 'disclaimer-servico');
+  const disclaimer = blocoDisclaimer
+    ? renderizarBlocos([blocoDisclaimer], ctx.templates)
+    : '';
+
   const conteudo = frag(ctx, 'servico', {
     texto: { nome: servico.nome },
     fragmento: {
@@ -832,6 +861,7 @@ function paginaServico(ctx, servico) {
       blocoIndicacoes,
       blocoComoEfeito,
       duracao,
+      disclaimer,
       secaoUnidades,
       secaoPreparo,
       ctaExames: montarCta(ctx),
@@ -917,7 +947,9 @@ function montarAcordeao(ctx, preparo) {
       dados,
       observacoes,
       alerta,
-      avisoVariacao: frag(ctx, 'parciais/aviso-variacao')
+      avisoVariacao: frag(ctx, 'parciais/aviso-variacao', {
+        texto: { texto: blocoPorId(ctx, 'preparo', 'aviso-variacao')?.texto ?? '' }
+      })
     }
   });
 }
@@ -929,10 +961,14 @@ function paginaPreparo(ctx) {
     { rotulo: 'Início', url: '/' },
     { rotulo: 'Preparo de exames', url: '/preparo-de-exames/' }
   ];
+  const { titulo, blocos } = conteudoEditorial(ctx, 'preparo', {
+    excluirIds: ['aviso-variacao']
+  });
   const conteudo = frag(ctx, 'preparo', {
+    texto: { tituloPagina: titulo },
     fragmento: {
       breadcrumb: montarBreadcrumb(ctx, itens),
-      blocos: blocosDaPagina(ctx, 'preparo'),
+      blocos,
       acordeoes,
       ctaExames: montarCta(ctx),
       avisoExterno: montarAvisoExterno(ctx)
@@ -952,13 +988,15 @@ function paginaPreparo(ctx) {
   };
 }
 
-function conteudoEditorial(ctx, chave) {
+function conteudoEditorial(ctx, chave, { excluirIds = [] } = {}) {
   const pagina = ctx.dados.paginas.paginas[chave];
   const blocos = pagina?.blocos ?? [];
   const visiveis = ctx.rascunho ? blocos : blocos.filter((bloco) => bloco?.status === 'aprovado');
   const indiceTitulo = visiveis.findIndex((bloco) => bloco?.tipo === 'titulo');
   const titulo = indiceTitulo >= 0 ? visiveis[indiceTitulo].texto : pagina?.seo?.titulo ?? '';
-  const restantes = visiveis.filter((_, indice) => indice !== indiceTitulo);
+  const restantes = visiveis.filter(
+    (bloco, indice) => indice !== indiceTitulo && !excluirIds.includes(bloco?.id)
+  );
   return { titulo, blocos: renderizarBlocos(restantes, ctx.templates) };
 }
 
@@ -1023,7 +1061,13 @@ function paginaConvenios(ctx) {
     .join('');
   const lista = itens ? frag(ctx, 'parciais/lista-simples', { fragmento: { itens } }) : '';
   const ressalva = frag(ctx, 'parciais/convenios-aviso', {
-    texto: { dataAtualizacao: dataAtualizacaoConvenios(ctx.dados.convenios?.atualizadoEm) }
+    texto: {
+      texto: blocoPorId(ctx, 'home', 'convenios-ressalva')?.texto ?? '',
+      dataAtualizacao: dataAtualizacaoConvenios(
+        ctx.dados.convenios?.atualizadoEm,
+        convenios.length
+      )
+    }
   });
 
   const conteudo = frag(ctx, 'convenios', {
@@ -1182,6 +1226,7 @@ function paginaPrivacidade(ctx) {
 
 function pagina404(ctx) {
   const dadosPagina = ctx.dados.paginas.paginas.naoEncontrado;
+  const { titulo, blocos } = conteudoEditorial(ctx, 'naoEncontrado');
   const itensTrilha = [
     { rotulo: 'Início', url: '/' },
     { rotulo: 'Página não encontrada', url: '/404.html' }
@@ -1202,7 +1247,8 @@ function pagina404(ctx) {
     titulo: dadosPagina.seo.titulo,
     descricao: dadosPagina.seo.descricao,
     conteudo: frag(ctx, '404', {
-      fragmento: { breadcrumb: montarBreadcrumb(ctx, itensTrilha), links }
+      texto: { tituloPagina: titulo },
+      fragmento: { breadcrumb: montarBreadcrumb(ctx, itensTrilha), blocos, links }
     }),
     robots: robotsTxt(ctx, { noindex: true }),
     jsonLd: []
