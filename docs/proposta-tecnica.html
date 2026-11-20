@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proposta técnica — Site institucional Terradic</title>
+<style>
+  :root {
+    --texto: #1f2328;
+    --texto-suave: #4b5563;
+    --borda: #d0d7de;
+    --fundo-suave: #f6f8fa;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0 auto;
+    padding: 32px 24px 64px;
+    max-width: 46rem;
+    background: #fff;
+    color: var(--texto);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 11.5pt;
+    line-height: 1.55;
+  }
+  .capa {
+    min-height: 82vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-bottom: 1px solid var(--borda);
+    padding-bottom: 32px;
+    margin-bottom: 32px;
+  }
+  .capa-tipo {
+    margin: 0 0 8px;
+    font-size: 10pt;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--texto-suave);
+  }
+  .capa h1 {
+    margin: 0;
+    font-size: 26pt;
+    line-height: 1.18;
+    letter-spacing: -0.01em;
+  }
+  .capa-versao {
+    margin: 18px 0 0;
+    font-size: 12pt;
+    font-weight: 600;
+  }
+  .capa-nota {
+    margin: 10px 0 0;
+    max-width: 34rem;
+    color: var(--texto-suave);
+    font-size: 10.5pt;
+  }
+  .metadados {
+    margin: 24px 0 0;
+  }
+  .meta {
+    margin: 4px 0;
+    font-size: 10.5pt;
+    color: var(--texto-suave);
+  }
+  .sumario {
+    margin: 32px 0 40px;
+    padding: 20px 24px;
+    border: 1px solid var(--borda);
+    border-radius: 6px;
+    background: var(--fundo-suave);
+    break-inside: avoid;
+  }
+  .sumario h2 {
+    margin: 0 0 12px;
+    font-size: 12pt;
+    border: 0;
+    padding: 0;
+  }
+  .sumario ol {
+    margin: 0;
+    padding-left: 1.3rem;
+    columns: 2;
+    column-gap: 2rem;
+  }
+  .sumario li {
+    margin: 4px 0;
+    break-inside: avoid;
+  }
+  .sumario a {
+    color: var(--texto);
+    text-decoration: none;
+  }
+  h2 {
+    margin: 28px 0 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--borda);
+    font-size: 15pt;
+    line-height: 1.25;
+    break-after: avoid;
+    break-inside: avoid;
+  }
+  h3 {
+    margin: 20px 0 8px;
+    font-size: 12pt;
+    break-after: avoid;
+  }
+  p {
+    margin: 0 0 10px;
+    overflow-wrap: break-word;
+  }
+  ul, ol {
+    margin: 0 0 12px;
+    padding-left: 1.4rem;
+  }
+  li { margin: 4px 0; }
+  strong { font-weight: 650; }
+  code {
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: var(--fundo-suave);
+    font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    font-size: 0.92em;
+  }
+  blockquote, .nota {
+    margin: 0 0 16px;
+    padding: 12px 16px;
+    border-left: 3px solid var(--borda);
+    background: var(--fundo-suave);
+    color: var(--texto-suave);
+    break-inside: avoid;
+  }
+  blockquote p:last-child, .nota p:last-child { margin-bottom: 0; }
+  .tabela-moldura {
+    margin: 12px 0 18px;
+    width: 100%;
+    overflow-x: auto;
+    break-inside: avoid;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 9.5pt;
+  }
+  th, td {
+    padding: 6px 8px;
+    border: 1px solid var(--borda);
+    text-align: left;
+    vertical-align: top;
+    overflow-wrap: break-word;
+    word-break: normal;
+    hyphens: auto;
+  }
+  th { background: var(--fundo-suave); font-weight: 650; }
+  section { break-inside: auto; }
+  section h2 + p { break-before: avoid; }
+  a { color: var(--texto); }
+  @media print {
+    @page { size: A4; margin: 20mm 18mm; }
+    body {
+      max-width: none;
+      padding: 0;
+      font-size: 11pt;
+      line-height: 1.5;
+    }
+    .capa { min-height: auto; padding-top: 22mm; }
+    .sumario { background: #fff; }
+    .tabela-moldura { overflow: visible; }
+    table { font-size: 9pt; }
+    h2 { break-after: avoid; }
+    table, tr, th, td, .sumario, blockquote, .nota { break-inside: avoid; }
+    thead { display: table-header-group; }
+  }
+</style>
+</head>
+<body>
+<header class="capa">
+  <p class="capa-tipo">Proposta técnica</p>
+  <h1>Proposta técnica — Site institucional Terradic</h1>
+  <p class="capa-versao">Versão preliminar</p>
+  <p class="capa-nota">Este documento não contém valores, prazos comerciais nem condições de pagamento.</p>
+  <div class="metadados"><p class="meta"><strong>Documento:</strong> proposta técnica (versão preliminar)</p><p class="meta"><strong>Para:</strong> direção e gestão da Terradic</p><p class="meta"><strong>Assunto:</strong> criação do site institucional da rede, com uma página por unidade e área de orientação ao paciente</p></div>
+</header>
+
+<nav class="sumario" aria-label="Sumário">
+  <h2>Sumário</h2>
+  <ol><li><a href="#secao-1">1. Entendimento do problema</a></li><li><a href="#secao-2">2. Objetivo do projeto</a></li><li><a href="#secao-3">3. O que está incluído</a></li><li><a href="#secao-4">4. O que não está incluído</a></li><li><a href="#secao-5">5. Como o site funciona na prática</a></li><li><a href="#secao-6">6. O que a clínica precisa fornecer</a></li><li><a href="#secao-7">7. Fases de entrega</a></li><li><a href="#secao-8">8. Manutenção e evolução</a></li><li><a href="#secao-9">9. Premissas</a></li><li><a href="#secao-10">10. Conformidade</a></li><li><a href="#secao-11">11. Como será verificado</a></li><li><a href="#secao-12">12. Riscos e dependências</a></li><li><a href="#secao-13">13. Próximos passos</a></li><li><a href="#secao-14">14. Nota de versão</a></li></ol>
+</nav>
+
+<article>
+  <blockquote><p>Este documento descreve <strong>o que</strong> será feito e <strong>como</strong> o site funcionará. Ele <strong>não contém valores, prazos comerciais nem condições de pagamento</strong>. A versão é preliminar e será ajustada após a reunião de briefing com a clínica.</p></blockquote>
+  <section id="secao-1"><h2>1. Entendimento do problema</h2>
+<p>A Terradic é uma rede de diagnóstico por imagem e telerradiologia no Ceará, com atuação em várias cidades. Hoje <strong>a clínica não tem site</strong>: os endereços de internet da marca não levam a lugar nenhum, e a presença digital está espalhada em perfis de redes sociais por unidade e em guias de terceiros.</p>
+<p>Na prática, isso produz quatro problemas:</p>
+<ol><li><strong>O paciente não encontra uma fonte oficial.</strong> Quem procura &quot;tomografia em Crateús&quot; ou &quot;mamografia em Cascavel&quot; cai em perfis sociais, listas de terceiros ou páginas desatualizadas. Não há um lugar em que ele confirme, com segurança, se aquela unidade faz o exame que ele precisa.</li><li><strong>A informação circula em versões diferentes.</strong> Telefones, endereços e horários aparecem em vários lugares, com formatos e valores distintos. Cada divergência gera ligação perdida, paciente que chega no lugar errado e desgaste no atendimento.</li><li><strong>A clínica não controla a primeira impressão.</strong> O que aparece hoje é definido por terceiros. A clínica não decide o que o paciente lê primeiro, nem consegue corrigir rapidamente uma informação errada.</li><li><strong>O portal de exames existe, mas não é apresentado.</strong> O paciente que já realizou um exame não é conduzido de forma clara ao portal onde baixa o laudo. Ele depende de instruções informais no balcão ou no telefone.</li></ol>
+<p>&gt; <strong>Sobre os dados usados nesta proposta.</strong> As unidades, cidades, serviços e a existência de uma unidade em Quixeramobim foram levantados em fontes públicas e em material de campanha da própria clínica. <strong>Nada disso foi confirmado formalmente pela clínica.</strong> Telefones, endereços, horários e convênios são, portanto, <strong>provisórios</strong> até a validação no briefing.</p>
+</section>
+<section id="secao-2"><h2>2. Objetivo do projeto</h2>
+<p>Criar o <strong>site oficial da rede</strong>: um endereço único, confiável e fácil de usar, que concentre a informação que o paciente procura e que a clínica quer que ele encontre.</p>
+<p>Resultados concretos e verificáveis:</p>
+<ul><li><strong>Ser encontrado por cidade e por exame.</strong> Cada unidade ativa tem uma página própria com conteúdo real (endereço, referência, telefone, horário, exames realizados). Cada exame tem uma página que explica o que é e em quais unidades é feito.</li><li><strong>Uma única versão da verdade.</strong> Endereço, telefone e horário existem em um só cadastro: o que aparece na página da unidade é exatamente o que aparece na página de contato, no rodapé e na informação que o Google lê.</li><li><strong>Direcionar o paciente ao portal de exames.</strong> O botão &quot;Baixar exames&quot; fica visível no topo, no destaque principal e no rodapé, sempre com a explicação de que o download acontece em um ambiente externo.</li><li><strong>Cumprir as exigências de identificação e de publicidade médica.</strong> Nome empresarial, CNPJ e responsável técnico com CRM acessíveis em todas as páginas; linguagem sem promessa de resultado.</li><li><strong>Funcionar bem para todos.</strong> Site leve, que abre rápido no celular com internet comum, navegável por teclado e por leitores de tela, com contraste adequado.</li></ul>
+<p>Uma ressalva honesta de expectativa: o site é a <strong>base</strong> para ser encontrado. A posição nas buscas também depende do perfil da empresa no Google (por unidade), da concorrência local e da qualidade do conteúdo. O projeto entrega a base técnica e o conteúdo; não promete primeira posição.</p>
+</section>
+<section id="secao-3"><h2>3. O que está incluído</h2>
+<p>Em linguagem de negócio, o projeto entrega:</p>
+<p><strong>Estrutura do site</strong></p>
+<ul><li><strong>Página inicial</strong> com a apresentação da rede, os exames realizados, as unidades e o acesso ao portal de exames.</li><li><strong>Página por unidade ativa</strong>, com nome, endereço completo, referência de localização, telefones clicáveis, horário de funcionamento, exames realizados ali, convênios aceitos naquela unidade, informação sobre atendimento particular e mapa.</li><li><strong>Índice de unidades</strong>, para o paciente escolher a mais próxima.</li><li><strong>Páginas de serviços</strong> para os exames da rede (tomografia, raio-X, ultrassonografia geral e Doppler, mamografia e consultas ambulatoriais — a lista final será confirmada pela clínica), explicados em linguagem leiga e ligados às unidades que os realizam.</li><li><strong>Guia de preparo de exames</strong> em uma página única, organizada por exame, com as orientações que o paciente precisa antes de ir (jejum, medicação, documentos, vestimenta).</li><li><strong>Página de convênios e atendimento particular</strong>, com a lista por unidade e o aviso de que a cobertura deve ser confirmada com a operadora e com a unidade.</li><li><strong>Página &quot;Sobre&quot;</strong> com a história, a atuação da rede e a identificação do responsável técnico.</li><li><strong>Página de contato</strong> com telefones por unidade, e-mail institucional e endereço da matriz.</li><li><strong>Página de erro</strong> para endereços que não existem, com caminhos úteis de volta.</li></ul>
+<p><strong>Recursos transversais</strong></p>
+<ul><li><strong>Botão &quot;Baixar exames&quot;</strong> no topo, no destaque e no rodapé, apontando para o portal externo, sempre com aviso de que o paciente sai do site da clínica.</li><li><strong>Identificação obrigatória</strong> (razão social, CNPJ e responsável técnico com CRM) no rodapé de todas as páginas.</li><li><strong>Otimização para busca local</strong>: cada página com título e descrição próprios, mapa do site enviado ao Google e marcação que ajuda o Google a entender que se trata de uma clínica com endereço e serviços naquela cidade.</li><li><strong>Acessibilidade</strong> no padrão WCAG 2.1 AA: contraste adequado, navegação por teclado, textos alternativos em imagens, estrutura de página compreensível por leitores de tela.</li><li><strong>Desempenho</strong>: site leve, sem bibliotecas pesadas, imagens otimizadas e mapa que só carrega quando o visitante pede.</li><li><strong>Ambiente de testes antes da publicação</strong>, que não aparece nas buscas até a aprovação.</li><li><strong>Documentação de operação</strong>, explicando como corrigir um telefone, incluir uma unidade ou atualizar um preparo.</li></ul>
+</section>
+<section id="secao-4"><h2>4. O que não está incluído</h2>
+<p>Para evitar expectativa errada, ficam <strong>fora</strong> desta proposta:</p>
+<ul><li>Agendamento de exames pelo site.</li><li>Área do paciente (login, histórico, dados de exames).</li><li>Entrega ou visualização de laudos no site.</li><li>Integração com o sistema de gestão da clínica.</li><li>Blog, área de notícias ou newsletter.</li><li>Painel de edição de conteúdo pela clínica (as alterações de cadastro são feitas com apoio da equipe do projeto).</li><li>Gestão de redes sociais e anúncios pagos.</li><li>Criação de identidade visual (logo, manual de marca, papelaria).</li><li>Loja, venda de exames, divulgação de preços, cupons ou pacotes promocionais.</li><li>Avaliações de pacientes, depoimentos, fotos de antes e depois.</li><li>Aplicativo para celular e versão do site em outro idioma.</li><li>Gestão do perfil da empresa no Google (recomendada em paralelo, porque influencia diretamente o resultado nas buscas, mas é uma frente separada).</li></ul>
+</section>
+<section id="secao-5"><h2>5. Como o site funciona na prática</h2>
+<p><strong>O download de exames continua no portal externo.</strong> O portal é operado pela Mobilemed e continua sendo o único lugar em que o paciente acessa o laudo. O site <strong>apenas direciona</strong>: o botão leva ao portal, em uma nova aba, acompanhado de um aviso claro de que se trata de um ambiente de terceiros. O site não recebe, não armazena e não vê dados do paciente, senha ou laudo. O paciente é orientado a ter em mãos o CPF e o protocolo ou senha de acesso.</p>
+<p><strong>Os dados de cada unidade ficam cadastrados em um único lugar.</strong> Corrigir um telefone é <strong>uma alteração só</strong>: ela se propaga para a página da unidade, o índice de unidades, a página de contato, o rodapé e a informação que o Google lê. Não existe a situação de corrigir em uma página e esquecer em outra. O mesmo vale para horário, endereço e lista de exames.</p>
+<p><strong>O mapa não pesa na primeira visita.</strong> O endereço em texto está sempre visível; o mapa interativo só carrega quando o visitante clica para vê-lo. Isso deixa o site mais rápido e evita que serviços de terceiros sejam acionados sem o visitante pedir.</p>
+<p><strong>Antes de ir ao ar, o site fica em um endereço de teste</strong> que não aparece no Google. A publicação só acontece depois da aprovação do conteúdo e do responsável técnico.</p>
+</section>
+<section id="secao-6"><h2>6. O que a clínica precisa fornecer</h2>
+<p>Os itens abaixo são o material que só a clínica tem. Nenhum deles impede o início do trabalho: a estrutura é construída enquanto o material é coletado. O que eles definem é <strong>quando cada parte pode ir ao ar</strong>.</p>
+<div class="tabela-moldura"><table><thead><tr><th>O que precisamos</th><th>Para que serve</th><th>Se faltar</th></tr></thead><tbody><tr><td>Confirmação de quais unidades estão em funcionamento (incluindo a de Quixeramobim)</td><td>Define quantas páginas de unidade existem</td><td>A unidade não confirmada não é publicada</td></tr><tr><td>Endereço completo, CEP e localização no mapa de cada unidade</td><td>Página da unidade, mapa e informação para o Google</td><td>A unidade fica fora do ar até completar</td></tr><tr><td>Telefones oficiais e definição de qual número é WhatsApp oficial</td><td>Contato e botão de telefone</td><td>Não publicamos número não confirmado</td></tr><tr><td>Horários de funcionamento por unidade</td><td>Página da unidade e contato</td><td>Unidade não publicada ou horário omitido</td></tr><tr><td>Quais exames são feitos em cada unidade</td><td>Páginas de serviço e de unidade</td><td>Serviço não é associado à unidade</td></tr><tr><td>Convênios aceitos por unidade e sua vigência</td><td>Página de convênios</td><td>Nenhum convênio é exibido</td></tr><tr><td>Formas de pagamento e documentos exigidos, se quiserem divulgar</td><td>Página de convênios e particular</td><td>Publicamos apenas &quot;consulte a unidade&quot;</td></tr><tr><td>Responsável técnico: nome, CRM e especialidade (e se há um por unidade)</td><td>Identificação obrigatória no rodapé e na página &quot;Sobre&quot;</td><td>O site não pode ser publicado sem essa identificação</td></tr><tr><td>Textos de preparo de exames revisados e aprovados pelo responsável técnico</td><td>Guia de preparo</td><td>O exame não é publicado no guia até a revisão</td></tr><tr><td>Texto institucional: história, atuação e diferenciais comprováveis</td><td>Página &quot;Sobre&quot; e página inicial</td><td>Publicamos uma versão mínima, sem afirmações não comprovadas</td></tr><tr><td>Logo no arquivo oficial (aquele que pode ser ampliado sem perder qualidade), cores e tipografia oficiais</td><td>Identidade visual definitiva</td><td>Usamos uma identidade provisória, claramente marcada como tal</td></tr><tr><td>Fotos reais das unidades e autorização de uso de imagem de pessoas identificáveis</td><td>Página das unidades</td><td>O layout usa blocos gráficos neutros, sem banco de imagens</td></tr><tr><td>Domínio definitivo e acesso ao serviço de domínio e à hospedagem</td><td>Publicação e endereço final</td><td>O site fica em endereço de teste</td></tr><tr><td>Texto de política de privacidade ou aviso legal</td><td>Rodapé e transparência com o paciente</td><td>O link não é publicado</td></tr><tr><td>E-mail institucional e perfis oficiais de redes sociais</td><td>Contato e identificação da marca</td><td>Publicamos apenas o que for confirmado</td></tr><tr><td>Prazo médio de laudo, <strong>se</strong> quiserem divulgar</td><td>Página de exames</td><td>O prazo não é mencionado</td></tr></tbody></table></div>
+<p>Observação importante: dados de exemplo, números encontrados em guias de terceiros e informações de material de campanha <strong>nunca vão ao ar</strong> como se fossem oficiais. Se um dado não for confirmado, ele simplesmente não é publicado.</p>
+</section>
+<section id="secao-7"><h2>7. Fases de entrega</h2>
+<p>A ordem abaixo é a ordem de execução. Não há datas nesta proposta: o ritmo de cada fase depende da chegada do material e das aprovações.</p>
+<div class="tabela-moldura"><table><thead><tr><th>Marco</th><th>O que é entregue</th><th>Depende da clínica?</th></tr></thead><tbody><tr><td><strong>1. Fundação</strong></td><td>Estrutura do site, padrão visual provisório, navegação, rodapé, página inicial em esqueleto e ambiente de teste</td><td><strong>Não</strong></td></tr><tr><td><strong>2. Unidades e exames</strong></td><td>Índice de unidades, páginas de unidade, páginas de serviço, ligações entre unidade e exame</td><td><strong>Parcial</strong> — estrutura pronta; conteúdo real depende dos dados</td></tr><tr><td><strong>3. Institucional e convênios</strong></td><td>Página &quot;Sobre&quot;, identificação do responsável técnico, convênios e particular, contato, página de erro</td><td><strong>Parcial</strong> — texto e lista de convênios vêm da clínica</td></tr><tr><td><strong>4. Busca e dados estruturados</strong></td><td>Títulos e descrições por página, mapa do site, informação estruturada para o Google</td><td><strong>Parcial</strong> — endereço e responsável técnico precisam estar confirmados</td></tr><tr><td><strong>5. Qualidade</strong></td><td>Revisão de acessibilidade, desempenho, comportamento em celular, tablet e computador</td><td><strong>Não</strong></td></tr><tr><td><strong>6. Conteúdo final e aprovação</strong></td><td>Textos finais, guia de preparo revisado, checklist de publicidade médica e aceite do responsável técnico</td><td><strong>Sim — bloqueante</strong></td></tr><tr><td><strong>7. Publicação</strong></td><td>Endereço definitivo, e-mail e acessos, envio do site ao Google, testes finais</td><td><strong>Sim</strong> — domínio e acessos</td></tr></tbody></table></div>
+<p>O que <strong>não</strong> depende da clínica (marcos 1 e 5, e a estrutura dos marcos 2 a 4) pode ser construído e revisado com dados de teste. O que <strong>depende</strong> (marcos 6 e 7) fica parado até o material chegar — e é justamente aí que o cronograma real se decide.</p>
+</section>
+<section id="secao-8"><h2>8. Manutenção e evolução</h2>
+<p>Publicar o site é o começo do uso, não o fim do trabalho. Esta seção explica o que precisa ser acompanhado depois da publicação. Ela não altera o escopo descrito até aqui nem transforma esta proposta em proposta comercial: descreve apenas a natureza do trabalho de manutenção.</p>
+<p><strong>Por que o site precisa de manutenção.</strong> Um site de clínica envelhece por três motivos:</p>
+<ul><li><strong>Os dados mudam.</strong> Um telefone é trocado, o horário é ajustado, uma unidade muda de endereço ou uma nova unidade passa a atender.</li><li><strong>A lista de convênios muda.</strong> Operadoras entram e saem, a cobertura de uma unidade muda, e a lista publicada deixa de corresponder ao que a recepção informa.</li><li><strong>As normas e as expectativas mudam.</strong> As regras de comunicação em saúde são revisadas, e a forma como o paciente procura e lê informação também muda com o tempo.</li></ul>
+<p>Um site desatualizado é pior do que a ausência de site: ele apresenta informação errada com aparência de oficial, o que gera ligação perdida, paciente no lugar errado e desgaste no atendimento. A manutenção existe para evitar exatamente isso.</p>
+<p><strong>O que é atualização de cadastro.</strong> É a correção ou inclusão de informação que a clínica já possui: telefone, horário, endereço e referência de localização, exames realizados por unidade, convênios aceitos, fotos das unidades e textos institucionais.</p>
+<p>Como esses dados ficam guardados em um único cadastro, a correção é feita <strong>uma vez só</strong> e passa a valer, ao mesmo tempo, na página da unidade, no índice de unidades, na página de contato, no rodapé e na informação que o Google lê. A alteração é feita com apoio da equipe do projeto, não por um painel de autoatendimento — o site não tem área de edição para a clínica, conforme já registrado no que está fora do escopo.</p>
+<p><strong>Rotinas recomendadas.</strong> As práticas abaixo são recomendação de boa prática para manter a informação confiável. Elas não constituem frequência contratada nem compromisso de atendimento: podem ser executadas pela própria clínica ou apoiadas pela equipe do projeto, conforme o modelo combinado.</p>
+<ul><li><strong>Lista de convênios:</strong> revisão a cada trimestre, com confirmação junto às operadoras e atualização da data de vigência exibida no site.</li><li><strong>Telefones, horários e unidades:</strong> conferência a cada semestre, incluindo abertura, fechamento ou mudança de endereço de unidade.</li><li><strong>Textos de preparo de exames:</strong> revisão sempre que o responsável técnico solicitar, ou quando houver mudança de protocolo.</li><li><strong>Fotos:</strong> atualização quando houver mudança física na unidade que altere a imagem mostrada ao paciente.</li><li><strong>Funcionamento geral:</strong> verificação periódica do certificado de segurança, da vigência do domínio e das páginas principais, para identificar indisponibilidade ou link quebrado antes que o paciente encontre.</li></ul>
+<p><strong>Modelos de acompanhamento.</strong> Existem formas comuns de organizar esse acompanhamento. Nenhuma delas está detalhada aqui em condições comerciais:</p>
+<ul><li><strong>Sob demanda:</strong> a clínica solicita correções pontuais quando precisar, sem programação fixa.</li><li><strong>Acompanhamento periódico:</strong> revisões programadas das informações e um interlocutor definido dos dois lados.</li><li><strong>Evolução por etapas:</strong> melhorias planejadas ao longo do tempo, com prioridades acordadas.</li></ul>
+<p>A escolha do modelo, das condições e da forma de contratação é objeto de proposta comercial separada, não deste documento.</p>
+<p><strong>Custos de operação que não são do projeto.</strong> Existem custos recorrentes de terceiros que mantêm o site no ar e não fazem parte do trabalho de construção:</p>
+<ul><li>Registro anual do domínio (o endereço do site).</li><li>Hospedagem do site.</li><li>Certificado de segurança, quando não estiver incluído na hospedagem.</li></ul>
+<p>Esses custos são da clínica ou repassados conforme contrato. Recomendamos que o domínio e a hospedagem fiquem registrados no nome da clínica, com os acessos sob sua guarda: é o que garante que ela não perca o controle do próprio endereço na internet, qualquer que seja a equipe que faça o trabalho.</p>
+<p><strong>O que a manutenção não cobre.</strong> Para evitar expectativa errada, não fazem parte da manutenção:</p>
+<ul><li>Criação de conteúdo novo para campanha.</li><li>Gestão de redes sociais.</li><li>Anúncios pagos.</li><li>Suporte a sistemas internos da clínica.</li><li>Criação de identidade visual.</li><li>Produção de fotografia.</li><li>Desenvolvimento de novas funcionalidades.</li></ul>
+<p><strong>Evolução futura, sem compromisso.</strong> Alguns caminhos podem ser avaliados mais adiante, fora deste escopo e sem qualquer promessa nesta proposta:</p>
+<ul><li>Agendamento de exames pelo site.</li><li>Área do paciente, com login e histórico.</li><li>Integração com o sistema de gestão da clínica.</li></ul>
+<p>Uma ressalva de cautela: agendamento e área do paciente envolvem dados de saúde e exigem um projeto próprio de segurança e privacidade, com definição de responsabilidades sobre o dado. Não são uma extensão trivial do site institucional e não devem ser tratados como tal.</p>
+<p><strong>Recomendação de dono.</strong> Sugerimos que a clínica nomeie um responsável interno pelas informações do site, com autoridade para confirmar dados e aprovar textos. Isso evita a divergência mais comum nesse tipo de projeto: a recepção informar uma coisa ao paciente e o site publicar outra.</p>
+</section>
+<section id="secao-9"><h2>9. Premissas</h2>
+<ol><li><strong>Identidade visual provisória.</strong> Enquanto não houver manual de marca e logo no arquivo oficial, trabalhamos com uma direção visual aproximada, derivada de material de campanha da própria clínica. Ela serve para validar estrutura e legibilidade — <strong>não é a marca oficial</strong>. A marca não é redesenhada nem recriada a partir de foto ou flyer; usamos um símbolo neutro até receber o arquivo correto.</li><li><strong>A publicação exige duas validações.</strong> Do responsável técnico, sobre qualquer texto clínico ou de comunicação em saúde; e da clínica, sobre dados de unidade, convênios e material oficial.</li><li><strong>Um interlocutor na clínica.</strong> Alguém com autonomia para responder dúvidas de cadastro e aprovar textos, para evitar retrabalho e informação contraditória.</li><li><strong>Conteúdo em português, sem área restrita.</strong> O site é público, informativo e sem login.</li><li><strong>Textos de preparo não são escritos por suposição.</strong> A estrutura fica pronta; o conteúdo entra somente depois da revisão médica, com registro de quem aprovou e quando.</li><li><strong>Hospedagem com certificado de segurança e domínio próprio.</strong> O site é publicado em uma hospedagem simples, com certificado de segurança e endereço próprio.</li><li><strong>O resultado nas buscas depende também de fatores externos</strong>, em especial do perfil da empresa no Google por unidade — frente recomendada em paralelo e não incluída neste escopo.</li></ol>
+</section>
+<section id="secao-10"><h2>10. Conformidade</h2>
+<p><strong>Publicidade médica.</strong> O site será construído para atender às exigências aplicáveis à comunicação de serviços médicos: identificação do responsável técnico com CRM, nome empresarial e CNPJ acessíveis, e nenhuma promessa de resultado, garantia de diagnóstico, sensacionalismo, superlativo não comprovável, foto de antes e depois, depoimento de paciente ou comparação com concorrentes. Todo texto passa por um checklist aplicado página a página, com aceite registrado do responsável técnico. A redação vigente da norma será conferida na revisão final, junto ao responsável técnico.</p>
+<p><strong>Privacidade (LGPD).</strong> O site <strong>não coleta dados</strong>: não tem formulário, não tem login, não usa cookies próprios e não instala rastreadores de terceiros. Por isso não há dado pessoal nem dado de saúde trafegando pelo site. O portal de exames é um ambiente independente, com regras próprias de privacidade e segurança — o site apenas informa e direciona, deixando claro que o paciente está saindo para outro ambiente.</p>
+<p><strong>Acessibilidade.</strong> O padrão adotado é o WCAG 2.1 AA: contraste de cores adequado, navegação completa por teclado, foco visível, textos alternativos, estrutura semântica e conteúdo legível mesmo se o navegador bloquear scripts.</p>
+<p><strong>Transparência.</strong> Convênios só aparecem após confirmação, sempre com a ressalva de verificação junto à operadora e à unidade e com a data de atualização visível. Nenhum dado de exemplo é publicado.</p>
+</section>
+<section id="secao-11"><h2>11. Como será verificado</h2>
+<p>O aceite não é uma impressão subjetiva: cada item abaixo tem uma forma de conferência.</p>
+<ul><li><strong>Indexação:</strong> todas as páginas publicadas aparecem no índice do Google, e o mapa do site enviado não aponta para endereço inexistente.</li><li><strong>Busca local:</strong> cada unidade ativa tem exatamente uma página, com endereço, telefone e horário idênticos aos do cadastro e aos do perfil da empresa no Google.</li><li><strong>Desempenho:</strong> o site atinge boas notas de velocidade em celular, com conexão simulada de 4G, e não carrega scripts pesados de terceiros.</li><li><strong>Acessibilidade:</strong> auditoria automatizada sem falhas críticas ou sérias nas páginas principais, complementada por teste manual de teclado e leitor de tela.</li><li><strong>Nenhum dado não confirmado:</strong> uma verificação automática no momento da publicação impede que texto provisório, telefone de exemplo ou convênio não confirmado cheguem ao ar.</li><li><strong>Funcionamento do botão de exames:</strong> todos os botões levam ao endereço correto do portal, abrem em nova aba e exibem o aviso de ambiente externo.</li><li><strong>Revisão do responsável técnico:</strong> checklist de publicidade médica assinado, abrangendo também a confirmação de que nenhum texto ou foto de campanha foi reaproveitado.</li><li><strong>Identificação:</strong> nome do responsável técnico e CRM presentes no rodapé de todas as páginas.</li></ul>
+<p>O detalhamento técnico completo está no documento técnico de referência do projeto.</p>
+</section>
+<section id="secao-12"><h2>12. Riscos e dependências</h2>
+<ol><li><strong>Dados não confirmados.</strong> O maior risco não é técnico: é publicar um telefone, endereço ou horário errado com aparência de oficial. Por isso, dado não confirmado não entra no ar — o que pode reduzir o número de unidades publicadas na primeira versão.</li><li><strong>Material e identidade visual.</strong> Sem logo, cores oficiais e fotos, o site vai ao ar com identidade provisória e sem fotos reais. É possível publicar assim, mas exige aceite explícito e gera uma segunda rodada de ajuste visual.</li><li><strong>Texto clínico e revisão médica.</strong> O guia de preparo depende da revisão do responsável técnico. Enquanto ela não acontece, os exames correspondentes não são publicados.</li><li><strong>Convênios.</strong> Lista desatualizada gera reclamação no balcão e desgaste com a operadora. A mitigação é ressalva visível, data de atualização e revisão periódica.</li><li><strong>Expectativa sobre o portal de exames.</strong> É comum esperar que o site &quot;abra o laudo&quot;. Isso não é possível nem adequado: o portal é de terceiros e exige login do paciente. O escopo deixa isso explícito desde o início.</li><li><strong>Domínio e perfil no Google.</strong> A publicação depende do domínio e dos acessos; o resultado nas buscas depende também do perfil da empresa no Google por unidade. Ambos são dependências externas ao site e precisam de dono definido na clínica.</li></ol>
+</section>
+<section id="secao-13"><h2>13. Próximos passos</h2>
+<ol><li><strong>Reunião de briefing</strong> para confirmar unidades ativas, serviços, convênios e responsável técnico, e para responder às dúvidas abertas deste documento.</li><li><strong>Coleta do material</strong> listado na seção 6, com um responsável definido do lado da clínica.</li><li><strong>Validação da identidade visual</strong>: confirmar se existe manual de marca e logo oficial; se não, aprovar a direção provisória para a primeira versão.</li><li><strong>Aprovação desta proposta</strong> e do escopo, com registro das premissas e do que ficou fora.</li></ol>
+</section>
+<section id="secao-14"><h2>14. Nota de versão</h2>
+<p><strong>Versão preliminar, sem valores; sujeita a ajuste após o briefing com a clínica.</strong></p>
+<p>Documento de apresentação técnica. Não substitui proposta comercial, contrato ou cronograma formal.</p>
+</section>
+</article>
+</body>
+</html>

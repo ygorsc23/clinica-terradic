@@ -1,0 +1,265 @@
+{
+  "aviso": "DADOS FICTICIOS PARA REVISAO LOCAL. Nao representam a clinica. Usados apenas com --rascunho e nunca no build de producao.",
+  "versao": 1,
+  "atualizadoEm": "2026-11-20",
+  "unidades": [
+    {
+      "id": "teste-centro",
+      "slug": "teste-centro",
+      "nomeExibicao": "Terradic Teste Centro",
+      "cidade": "Fortaleza",
+      "uf": "CE",
+      "cnpjFilial": "14.106.964/0001-23",
+      "matriz": true,
+      "status": "ativo",
+      "endereco": {
+        "logradouro": "Avenida das Palmeiras",
+        "numero": "1200",
+        "complemento": "Sala 4",
+        "bairro": "Centro",
+        "cep": "60000000",
+        "referencia": "Ao lado da praça central"
+      },
+      "geo": {
+        "lat": -3.7319,
+        "lng": -38.5267,
+        "precisao": "aproximada"
+      },
+      "telefones": [
+        {
+          "rotulo": "Recepção",
+          "e164": "+558590000001",
+          "tipo": "fixo",
+          "validado": true
+        },
+        {
+          "rotulo": "Agendamento",
+          "e164": "+558590000002",
+          "tipo": "movel",
+          "validado": true
+        }
+      ],
+      "whatsapp": {
+        "e164": "+558590000003",
+        "validado": true
+      },
+      "email": "unidade.teste@terradic.invalid",
+      "horarios": [
+        {
+          "dias": ["seg", "ter", "qua", "qui", "sex"],
+          "abre": "08:00",
+          "fecha": "18:00",
+          "obs": "Atendimento por ordem de chegada"
+        },
+        {
+          "dias": ["sab"],
+          "abre": "08:00",
+          "fecha": "12:00",
+          "obs": null
+        }
+      ],
+      "servicos": ["tomografia", "mamografia"],
+      "convenios": [],
+      "atendimentoParticular": true,
+      "comodidades": {
+        "estacionamento": true,
+        "acessivel": true
+      },
+      "observacoesPublicas": "Unidade de teste para revisão de layout.",
+      "fotos": [],
+      "redesSociais": {
+        "instagram": null,
+        "facebook": null
+      },
+      "responsavelTecnico": null,
+      "validacao": {
+        "status": "confirmado",
+        "confirmadoPor": "Equipe de revisão local",
+        "data": "2026-11-20",
+        "fontes": ["dados-teste/unidades.exemplo.json"]
+      },
+      "atualizadoEm": "2026-11-20"
+    },
+    {
+      "id": "teste-litoral",
+      "slug": "teste-litoral",
+      "nomeExibicao": "Terradic Teste Litoral",
+      "cidade": "Aquiraz",
+      "uf": "CE",
+      "cnpjFilial": "14.106.964/0002-00",
+      "matriz": false,
+      "status": "ativo",
+      "endereco": {
+        "logradouro": "Rua do Coqueiral",
+        "numero": "45",
+        "complemento": null,
+        "bairro": "Centro",
+        "cep": "61700000",
+        "referencia": null
+      },
+      "geo": {
+        "lat": null,
+        "lng": null,
+        "precisao": "aproximada"
+      },
+      "telefones": [
+        {
+          "rotulo": "Recepção",
+          "e164": "+558590000005",
+          "tipo": "fixo",
+          "validado": true
+        }
+      ],
+      "whatsapp": {
+        "e164": null,
+        "validado": false
+      },
+      "email": null,
+      "horarios": [
+        {
+          "dias": ["seg", "ter", "qua", "qui", "sex"],
+          "abre": "07:00",
+          "fecha": "17:00",
+          "obs": null
+        }
+      ],
+      "servicos": ["raio-x", "ultrassonografia"],
+      "convenios": [],
+      "atendimentoParticular": true,
+      "comodidades": {
+        "estacionamento": null,
+        "acessivel": null
+      },
+      "observacoesPublicas": null,
+      "fotos": [],
+      "redesSociais": {
+        "instagram": null,
+        "facebook": null
+      },
+      "responsavelTecnico": null,
+      "validacao": {
+        "status": "confirmado",
+        "confirmadoPor": "Equipe de revisão local",
+        "data": "2026-11-20",
+        "fontes": ["dados-teste/unidades.exemplo.json"]
+      },
+      "atualizadoEm": "2026-11-20"
+    },
+    {
+      "id": "teste-serra",
+      "slug": "teste-serra",
+      "nomeExibicao": "Terradic Teste Serra",
+      "cidade": "Guaramiranga",
+      "uf": "CE",
+      "cnpjFilial": "14.106.964/0003-00",
+      "matriz": false,
+      "status": "ativo",
+      "endereco": {
+        "logradouro": "Estrada da Serra",
+        "numero": "310",
+        "complemento": null,
+        "bairro": "Alto",
+        "cep": "62766000",
+        "referencia": null
+      },
+      "geo": {
+        "lat": -4.2628,
+        "lng": -38.9319,
+        "precisao": "aproximada"
+      },
+      "telefones": [
+        {
+          "rotulo": "Recepção",
+          "e164": "+558590000006",
+          "tipo": "fixo",
+          "validado": true
+        }
+      ],
+      "whatsapp": {
+        "e164": "+558590000007",
+        "validado": false
+      },
+      "email": null,
+      "horarios": [
+        {
+          "dias": ["ter", "qua", "qui"],
+          "abre": "09:00",
+          "fecha": "16:00",
+          "obs": null
+        }
+      ],
+      "servicos": ["ultrassonografia", "consultas-ambulatoriais"],
+      "convenios": [],
+      "atendimentoParticular": true,
+      "comodidades": {
+        "estacionamento": null,
+        "acessivel": true
+      },
+      "observacoesPublicas": null,
+      "fotos": [],
+      "redesSociais": {
+        "instagram": null,
+        "facebook": null
+      },
+      "responsavelTecnico": null,
+      "validacao": {
+        "status": "confirmado",
+        "confirmadoPor": "Equipe de revisão local",
+        "data": "2026-11-20",
+        "fontes": ["dados-teste/unidades.exemplo.json"]
+      },
+      "atualizadoEm": "2026-11-20"
+    },
+    {
+      "id": "teste-pendente",
+      "slug": "teste-pendente",
+      "nomeExibicao": "Terradic Teste Pendente",
+      "cidade": "Canindé",
+      "uf": "CE",
+      "cnpjFilial": null,
+      "matriz": false,
+      "status": "a-confirmar",
+      "endereco": {
+        "logradouro": null,
+        "numero": null,
+        "complemento": null,
+        "bairro": null,
+        "cep": null,
+        "referencia": null
+      },
+      "geo": {
+        "lat": null,
+        "lng": null,
+        "precisao": "aproximada"
+      },
+      "telefones": [],
+      "whatsapp": {
+        "e164": null,
+        "validado": false
+      },
+      "email": null,
+      "horarios": [],
+      "servicos": [],
+      "convenios": [],
+      "atendimentoParticular": null,
+      "comodidades": {
+        "estacionamento": null,
+        "acessivel": null
+      },
+      "observacoesPublicas": null,
+      "fotos": [],
+      "redesSociais": {
+        "instagram": null,
+        "facebook": null
+      },
+      "responsavelTecnico": null,
+      "validacao": {
+        "status": "pendente",
+        "confirmadoPor": null,
+        "data": null,
+        "fontes": []
+      },
+      "atualizadoEm": "2026-11-20"
+    }
+  ]
+}

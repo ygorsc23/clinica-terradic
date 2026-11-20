@@ -1,0 +1,20 @@
+<footer class="rodape">
+  <div class="container-pagina grid gap-8 py-10 md:grid-cols-3">
+    <div>
+      <p class="rodape-marca">{{marcaNome}}</p>
+      <p class="mt-2 text-sm">{{razaoSocial}}</p>
+      <p class="mt-1 text-sm">CNPJ {{cnpj}}</p>
+      {{blocoEnderecoMatriz}}
+      {{blocoContatoInstitucional}}
+    </div>
+    {{colunaUnidades}}
+    <div class="flex flex-col gap-4">
+      {{ctaExames}}
+      {{blocoResponsavelTecnico}}
+    </div>
+  </div>
+  <div class="rodape-base container-pagina">
+    <p>© {{ano}} {{marcaNome}} · {{razaoSocial}} · CNPJ {{cnpj}}</p>
+    {{linkPrivacidade}}
+  </div>
+</footer>

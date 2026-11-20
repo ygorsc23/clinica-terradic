@@ -1,0 +1,64 @@
+{
+  "versao": 1,
+  "atualizadoEm": "2026-11-20",
+  "paginas": {
+    "home": {
+      "seo": {
+        "titulo": "Terradic — diagnóstico por imagem no Ceará",
+        "descricao": "Rede de diagnóstico por imagem e telerradiologia no Ceará. Conheça os serviços, o preparo dos exames e o acesso ao portal externo de laudos."
+      },
+      "blocos": [
+        {
+          "tipo": "titulo",
+          "texto": "Diagnóstico por imagem e telerradiologia no Ceará"
+        },
+        {
+          "tipo": "paragrafo",
+          "texto": "A Terradic reúne unidades de diagnóstico por imagem no Ceará. Consulte os serviços disponíveis, os dados de cada unidade e o acesso ao portal de exames."
+        }
+      ]
+    },
+    "unidades": {
+      "seo": {
+        "titulo": "Unidades da Terradic no Ceará",
+        "descricao": "Lista de unidades da Terradic com endereço confirmado, telefones, horário de funcionamento e serviços de diagnóstico por imagem disponíveis."
+      },
+      "blocos": [
+        {
+          "tipo": "paragrafo",
+          "texto": "Cada unidade reúne endereço, telefones, horário de funcionamento e os serviços de imagem disponíveis. Confirme os dados com a unidade antes da visita."
+        }
+      ]
+    },
+    "servicos": {
+      "seo": {
+        "titulo": "Serviços de diagnóstico por imagem | Terradic",
+        "descricao": "Tomografia, raio-X, ultrassonografia, mamografia e consultas ambulatoriais. Veja o preparo de cada exame e as unidades que realizam o serviço."
+      },
+      "blocos": [
+        {
+          "tipo": "paragrafo",
+          "texto": "Exames de imagem e consultas ambulatoriais. Cada serviço informa o preparo necessário e as unidades que realizam o exame."
+        }
+      ]
+    },
+    "preparo": {
+      "seo": {
+        "titulo": "Preparo de exames | Terradic",
+        "descricao": "Orientações de preparo para os exames de imagem da Terradic. Confira jejum, documentos e cuidados e confirme as instruções com a unidade antes de ir."
+      },
+      "blocos": [
+        {
+          "tipo": "paragrafo",
+          "texto": "Veja as orientações de preparo de cada exame. O preparo pode variar conforme a unidade e o equipamento: confirme as instruções com a unidade antes da visita."
+        }
+      ]
+    },
+    "naoEncontrado": {
+      "seo": {
+        "titulo": "Página não encontrada | Terradic",
+        "descricao": "A página procurada não existe ou mudou de endereço. Volte à página inicial para encontrar as unidades e os serviços de diagnóstico por imagem."
+      }
+    }
+  }
+}

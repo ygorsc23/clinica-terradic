@@ -1,0 +1,15 @@
+<header class="cabecalho" data-cabecalho>
+  <div class="container-pagina flex flex-wrap items-center justify-between gap-3 py-3">
+    <a class="marca" href="/">
+      <span class="marca-nome">{{marcaNome}}</span>
+      <span class="marca-subtitulo">Diagnóstico por imagem</span>
+    </a>
+    <button class="botao-menu" type="button" aria-expanded="false" aria-controls="menu-principal" data-menu-botao>
+      Menu
+    </button>
+    <div class="menu-painel" id="menu-principal" data-menu-painel>
+      {{nav}}
+      <div class="menu-cta">{{ctaExames}}</div>
+    </div>
+  </div>
+</header>

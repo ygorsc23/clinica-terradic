@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{titulo}}</title>
+  <meta name="description" content="{{descricao}}">
+  <meta name="robots" content="{{robots}}">
+  <link rel="canonical" href="{{canonical}}">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:type" content="{{ogTipo}}">
+  <meta property="og:site_name" content="{{marcaNome}}">
+  <meta property="og:title" content="{{ogTitulo}}">
+  <meta property="og:description" content="{{ogDescricao}}">
+  <meta property="og:url" content="{{ogUrl}}">
+  <meta property="og:image" content="{{ogImagem}}">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/estilo.css">
+  {{jsonLdScript}}
+</head>
+<body>
+  {{faixaRevisao}}
+  <a class="pular-link" href="#conteudo">Pular para o conteúdo</a>
+  {{cabecalho}}
+  <main id="conteudo" tabindex="-1">
+    {{conteudo}}
+  </main>
+  {{rodape}}
+  <script src="/assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+{
+  "versao": 1,
+  "atualizadoEm": "2026-11-20",
+  "marca": {
+    "nome": "Terradic",
+    "nomeCompleto": "Terradic Telerradiologia",
+    "razaoSocial": "Ed Wilson Custódio Francelino",
+    "cnpj": "14.106.964/0001-23"
+  },
+  "urlBase": "https://terradic.com.br",
+  "idioma": "pt-BR",
+  "portalExames": {
+    "url": "https://entregadeexames.com.br/",
+    "operador": "Mobilemed",
+    "instrucoes": ["CPF", "protocolo/senha"],
+    "ambienteExterno": true
+  },
+  "contatoInstitucional": {
+    "email": null,
+    "telefoneE164": null
+  },
+  "responsavelTecnico": {
+    "nome": null,
+    "crm": null,
+    "crmUf": null,
+    "especialidade": null,
+    "status": "pendente"
+  },
+  "redesSociais": {
+    "instagram": null,
+    "facebook": null
+  },
+  "analytics": null,
+  "identidadeVisual": {
+    "status": "provisoria",
+    "origem": "flyer de campanha — unidade Pacajus (redes sociais)",
+    "brandbook": null,
+    "logoOficial": null,
+    "substituidaEm": null
+  },
+  "privacidade": {
+    "politicaPublicada": false,
+    "atualizadoEm": null
+  }
+}

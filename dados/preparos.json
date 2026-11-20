@@ -1,0 +1,116 @@
+{
+  "versao": 1,
+  "atualizadoEm": "2026-11-20",
+  "preparos": [
+    {
+      "id": "tomografia-sem-contraste",
+      "slug": "tomografia-sem-contraste",
+      "exame": "Tomografia sem contraste",
+      "servicoId": "tomografia",
+      "resumo": null,
+      "jejum": null,
+      "hidratacao": null,
+      "medicamentos": null,
+      "documentos": [],
+      "vestimenta": null,
+      "duracao": null,
+      "observacoes": [],
+      "alerta": null,
+      "revisao": {
+        "status": "pendente",
+        "responsavel": null,
+        "crm": null,
+        "data": null
+      },
+      "atualizadoEm": "2026-11-20"
+    },
+    {
+      "id": "tomografia-com-contraste",
+      "slug": "tomografia-com-contraste",
+      "exame": "Tomografia com contraste",
+      "servicoId": "tomografia",
+      "resumo": null,
+      "jejum": null,
+      "hidratacao": null,
+      "medicamentos": null,
+      "documentos": [],
+      "vestimenta": null,
+      "duracao": null,
+      "observacoes": [],
+      "alerta": null,
+      "revisao": {
+        "status": "pendente",
+        "responsavel": null,
+        "crm": null,
+        "data": null
+      },
+      "atualizadoEm": "2026-11-20"
+    },
+    {
+      "id": "ultrassonografia-abdome",
+      "slug": "ultrassonografia-abdome",
+      "exame": "Ultrassonografia de abdome",
+      "servicoId": "ultrassonografia",
+      "resumo": null,
+      "jejum": null,
+      "hidratacao": null,
+      "medicamentos": null,
+      "documentos": [],
+      "vestimenta": null,
+      "duracao": null,
+      "observacoes": [],
+      "alerta": null,
+      "revisao": {
+        "status": "pendente",
+        "responsavel": null,
+        "crm": null,
+        "data": null
+      },
+      "atualizadoEm": "2026-11-20"
+    },
+    {
+      "id": "mamografia",
+      "slug": "mamografia",
+      "exame": "Mamografia",
+      "servicoId": "mamografia",
+      "resumo": null,
+      "jejum": null,
+      "hidratacao": null,
+      "medicamentos": null,
+      "documentos": [],
+      "vestimenta": null,
+      "duracao": null,
+      "observacoes": [],
+      "alerta": null,
+      "revisao": {
+        "status": "pendente",
+        "responsavel": null,
+        "crm": null,
+        "data": null
+      },
+      "atualizadoEm": "2026-11-20"
+    },
+    {
+      "id": "radiografia",
+      "slug": "radiografia",
+      "exame": "Radiografia (raio-X)",
+      "servicoId": "raio-x",
+      "resumo": null,
+      "jejum": null,
+      "hidratacao": null,
+      "medicamentos": null,
+      "documentos": [],
+      "vestimenta": null,
+      "duracao": null,
+      "observacoes": [],
+      "alerta": null,
+      "revisao": {
+        "status": "pendente",
+        "responsavel": null,
+        "crm": null,
+        "data": null
+      },
+      "atualizadoEm": "2026-11-20"
+    }
+  ]
+}

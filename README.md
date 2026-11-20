@@ -1,0 +1,273 @@
+# Site institucional Terradic
+
+Site institucional estático e multiunidade da Terradic (rede de diagnóstico por imagem e
+telerradiologia no Ceará). O site é gerado por um build próprio em Node: HTML5 + Tailwind CSS
+compilado via CLI (nunca CDN) + um único bundle de JavaScript vanilla. Não há backend, banco de
+dados, formulário, cookie próprio ou analytics.
+
+Este repositório está na **segunda rodada de implementação** (Fases 0, 1, 2 e parte da Fase 3 do
+`specs/001-site-institucional-terradic/tasks.md`), com as correções do QA da rodada 1: gate
+estrito de go-live, telefone validado, identificação do rodapé, artefato de rascunho separado,
+auditoria da produção real, blocos editoriais e ajustes de acessibilidade/conteúdo. Convênios,
+Sobre/Contato, SEO completo e deploy ainda não foram implementados.
+
+## Requisitos
+
+- Node.js LTS fixado em `.nvmrc` (`24.11.0`); `package.json` exige `>= 24.11.0`.
+- npm (o lockfile é versionado).
+- Nenhuma outra dependência além de `tailwindcss` (e seu CLI).
+
+```powershell
+npm ci
+```
+
+## Comandos
+
+| Comando | O que faz |
+|---|---|
+| `npm run dev` | Gera o site em modo `--rascunho`, sobe `http://localhost:4173/` e reconstrói ao alterar `src/`, `dados/`, `dados-teste/` ou `tailwind.config.js`. |
+| `npm run build` | Build de produção tolerante: só publica unidade `ativo` + validação `confirmado` + telefone validado, serviço `aprovado`, preparo `aprovado`. Grava `dist/` e `relatorios/`. |
+| `npm run build:go-live` | Gate estrito de publicação: exige unidade publicável, menu com ao menos 2 itens, rotas estruturais, preparos aprovados, RT/CRM, contato institucional e endereço da matriz. Falha listando **todos** os bloqueios de uma vez. Hoje falha (dados pendentes) — comportamento esperado. |
+| `npm run build:rascunho` | Build de revisão: inclui entidades pendentes, usa `dados-teste/unidades.exemplo.json` quando existir e adiciona a faixa "VERSÃO DE REVISÃO — DADOS NÃO CONFIRMADOS" + `noindex`. Grava `dist-rascunho/`. |
+| `npm run check` | `--rascunho --check`: valida dados, gera o site de revisão em `dist-rascunho/` e roda **todas** as regras de QA sobre o rascunho e sobre uma produção real gerada em diretório temporário (links, `tel:`, `rel`, NAP visível, hex, claims, orçamento, requisição externa em HTML/JS/CSS, artefato de produção). Também confere que o `dist/` de produção não foi alterado. |
+| `npm test` | Testes negativos com `node:test` (validador de dados, regras do `--check`, go-live, blocos e metadados). |
+
+O build não acessa a rede. A única chamada externa é o Tailwind CLI local.
+
+`npm run check` grava o artefato de revisão em `dist-rascunho/` (ignorado no git) e **não** sobrescreve `dist/`. O relatório em
+`relatorios/` é sempre gerado a partir dos dados reais, inclusive quando o build é de rascunho.
+O deploy publica **apenas** a saída de `npm run build` (ou de `npm run build:go-live` quando ele passar).
+
+### Flags do build
+
+```powershell
+node scripts/build.mjs --rascunho
+node scripts/build.mjs --go-live
+node scripts/build.mjs --check
+node scripts/build.mjs --base-url=https://staging.exemplo.com
+```
+
+`--go-live` implica produção + auditoria completa; ele não gera `dist/` se o gate falhar.
+`--base-url` troca apenas as URLs geradas (canonical, sitemap, robots) para pré-visualização; a
+validação continua exigindo `https://terradic.com.br` em `dados/site.json`.
+
+## Estrutura
+
+```
+dados/            fonte de verdade (site, unidades, serviços, preparos, convênios, páginas)
+dados-teste/      dados fictícios, usados apenas em --rascunho
+dados/exemplos-briefing.json   exemplos do levantamento; fora do build (só o validador lê)
+src/templates/    layout, páginas e parciais com tokens {{...}}
+src/css/          entrada do Tailwind + tokens de tema (únicas cores literais do projeto)
+src/js/           bundle único (menu, acordeões, fachada de mapa)
+src/estatico/     favicon, marca provisória, og-imagem
+scripts/          build.mjs, servidor.mjs, testes.mjs, lib/*.mjs
+dist/             saída de produção gerada (ignorada no git)
+dist-rascunho/    saída de revisão do --rascunho/--check (ignorada no git)
+relatorios/       pendencias.md e pendencias.json (ignorados no git)
+```
+
+O build escreve `dist/<rota>/index.html` (ou `dist-rascunho/<rota>/index.html` em revisão),
+`404.html`, `sitemap.xml`, `robots.txt`, `assets/estilo.css`, `assets/app.js` e copia
+`src/estatico/` para a saída.
+
+## Como editar conteúdo
+
+### Trocar um telefone
+
+1. Abra `dados/unidades.json`.
+2. Localize a unidade pelo `slug` e edite `telefones[].e164` **apenas no formato E.164**
+   (`+55` + DDD + número, ex.: `+558533433739`). O site formata para leitura, e o JSON-LD e o
+   `tel:` usam o mesmo valor.
+3. Marque `validado: true` somente depois de confirmar o número com a clínica.
+4. Rode `npm run check` (ou `npm run build:rascunho`) e confira a página da unidade e o rodapé.
+5. Rode `npm run build` para o artefato de produção.
+
+Nenhum template precisa ser alterado: página da unidade, índice, rodapé e JSON-LD são derivados do
+JSON.
+
+### Adicionar uma unidade
+
+1. Copie um objeto de `dados/unidades.json` e preencha `id`, `slug` (minúsculas, sem acento,
+   `[a-z0-9-]`), `nomeExibicao`, `cidade`, `uf`, `cnpjFilial`, `matriz`.
+2. Enquanto os dados não estiverem confirmados, mantenha `status: "a-confirmar"` e
+   `validacao.status: "pendente"`. A unidade **não** gera página nem entra no sitemap de produção.
+3. Para publicar, preencha endereço completo + CEP, ao menos um telefone validado, horários,
+   serviços, `atendimentoParticular`, `cnpjFilial`, `validacao.status: "confirmado"`,
+   `confirmadoPor`, `data` e `fontes`, e mude `status` para `"ativo"`.
+4. Rode `npm run build` e depois `npm run check`. Um erro de dado sai no formato
+   `arquivo:campo:entidade` (ex.: `unidades.json:endereco.cep:caninde`).
+
+### Adicionar um serviço
+
+1. Em `dados/servicos.json`, crie o serviço com `id`, `slug`, `nome`, `nomeCurto` e `status`.
+2. Enquanto o texto não for aprovado, use `status: "pendente"`; o build de produção não publica.
+3. Para publicar: `status: "aprovado"` exige `resumo` e ao menos um parágrafo em `descricao`.
+4. Associe o serviço às unidades em `unidades[].servicos` (a relação é derivada; nunca duplique a
+   lista no serviço).
+
+### Adicionar um preparo
+
+1. Em `dados/preparos.json`, preencha `id`, `slug`, `exame` e `servicoId` (referência existente).
+2. O conteúdo clínico (jejum, medicação, documentos, vestimenta, alertas) só pode ser publicado
+   após revisão do responsável técnico. Até lá, mantenha `revisao.status: "pendente"`.
+3. Para publicar: `revisao.status: "aprovado"` **exige** `revisao.responsavel`, `revisao.crm` e
+   `revisao.data`. O build de produção falha se faltar qualquer um.
+4. Adicione o preparo ao serviço correspondente em `servicos[].preparos`.
+
+## Regras aplicadas pelo build
+
+- Campos obrigatórios por status, slug único e normalizado, referências existentes, telefone
+  `^\+55\d{10,11}$`, CEP `^\d{8}$`, `abre < fecha`, `urlBase` e `portalExames.url` exatas.
+- Unidade `ativo` exige validação `confirmado` com `confirmadoPor`, `data` e `fontes`, além de ao
+  menos um telefone com `validado: true` em E.164. `validado` ausente ou não booleano é erro.
+- Erros acumulados no formato `arquivo:campo:entidade`, com saída diferente de zero.
+- Gates: unidade publicável, serviço aprovado, preparo aprovado. Em `--rascunho` viram avisos e
+  entram a faixa de revisão e o `noindex`.
+- Derivados: serviço → unidades e convênio → unidades calculados no build; horários formatados;
+  breadcrumbs visuais e em JSON-LD.
+- Saída determinística: sem timestamp de runtime (o único valor de relógio é o ano do rodapé,
+  exigido por FR-02); listas ordenadas por slug; `lastmod` vem de `atualizadoEm`.
+- Relatório `relatorios/pendencias.md` + `.json` com todos os campos nulos/pendentes e os
+  bloqueios C-01..C-15. C-01/C-03 usam o gate real (validação confirmada e telefone `validado`).
+
+## Gate de go-live (`npm run build:go-live`)
+
+O build de produção é tolerante para permitir revisão local. A publicação usa o gate estrito, que
+falha com a lista completa de bloqueios (não para no primeiro):
+
+- `preparos.json:revisao.status:<slug>` para preparo não aprovado exigido por serviço publicável;
+- `unidades.json:publicadas:site` quando não há nenhuma unidade publicável;
+- `rotas:menu:site` quando o menu teria menos de 2 itens;
+- `rotas:<rota>:site` para cada rota estrutural obrigatória ausente (unidades, serviços, preparo,
+  convênios, sobre, contato, 404);
+- `site.json:responsavelTecnico.*` e `site.json:contatoInstitucional.*` para identificação incompleta;
+- `unidades.json:endereco.*:<slug-da-matriz>` para endereço institucional incompleto.
+
+O rodapé mantém os blocos condicionais (não inventa dado), mas o go-live não passa sem RT/CRM,
+contato institucional e endereço da matriz. T013 está registrada como **parcial** no relatório.
+
+## Normalização do NAP
+
+A checagem `nap.divergencia` compara atributos ocultos (`data-nap-*`) **e** o texto visível:
+
+- texto visível: entidades decodificadas, sem acentos, minúsculo, pontuação trocada por espaço e
+  espaços colapsados (logradouro e bairro);
+- CEP: apenas dígitos (`60000-000` e `60000000` são iguais);
+- telefone: apenas dígitos, descartando o prefixo `55` do E.164; o texto formatado de um `tel:`
+  visível precisa corresponder ao telefone do JSON-LD.
+
+A página da unidade informa que o rodapé exibe o endereço institucional da matriz, não o da unidade.
+
+## Privacidade
+
+- Nenhum `<form>`, campo de dado pessoal, cookie, pixel ou analytics (`site.json.analytics: null`).
+- Nenhuma requisição externa no carregamento inicial. O mapa do Google só carrega após clique.
+- O CTA "Baixar exames" aponta para `https://entregadeexames.com.br/` em nova aba, com
+  `rel="noopener noreferrer"`, rótulo acessível e aviso visível de ambiente externo.
+- Links de exames não recebem parâmetros e não há iframe, preload, prefetch ou redirect.
+
+## Testes negativos (`npm test`)
+
+Cada regra do `--check` e do validador tem um teste que comprova a falha:
+
+| Regra / validação | Teste |
+|---|---|
+| `unidades.json` obrigatório, slug, E.164, CEP, horário, refs, validação | testes "unidade ativa sem CEP...", "slug duplicado...", "telefone fora do padrão...", "horário com abre >= fecha...", "referência de serviço inexistente..." |
+| Telefone `validado` e rastreabilidade da unidade ativa | "B2: unidade ativa exige telefone com validado booleano e true", "B2: unidade ativa exige confirmadoPor, data e fontes" |
+| Gate de go-live (preparo, RT, contato, matriz, menu, rotas) | "B1: go-live acusa preparo pendente...", "B3/B4: go-live lista RT, contato, matriz, unidades, menu e rotas de uma vez" |
+| Metadados de unidade | "M1: título e descrição de todas as unidades respeitam os limites" |
+| Convênios com lista | "M2: ressalva e data de atualização aparecem mesmo com convênio na lista" |
+| Serviço pendente | "M3: serviço pendente não aparece em chips nem em availableService" |
+| Selo de preparo | "M4: selo de preparo mostra responsável, CRM e data" |
+| Foco em superfície escura | "M5: token de foco escuro tem contraste >= 3:1 contra a secundária" |
+| Blocos editoriais | "M6: renderizador de blocos suporta os tipos e escapa HTML" |
+| Relatório C-03 | "M7: relatório calcula C-03 pelo gate real de telefone validado" |
+| NAP visível | "M8: NAP compara CEP visível normalizado além dos atributos ocultos" |
+| Exemplo do levantamento recusado | "telefone idêntico a exemplo do levantamento é recusado" |
+| `urlBase` / `portalExames.url` exatas | "portal de exames com URL diferente...", "urlBase com www..." |
+| Serviço/preparo aprovados sem conteúdo mínimo | "serviço aprovado sem descrição...", "preparo aprovado sem responsável técnico..." |
+| `links.interno` / âncoras | "links.interno acusa link para rota inexistente", "links.interno acusa âncora quebrada" |
+| `links.rel` | "links.rel exige target e rel em link externo" |
+| `links.tel` | "links.tel exige E.164" |
+| `portal.url` | "portal.url aceita somente a URL exata" |
+| `externo.requisicao` | "externo.requisicao acusa script externo", "...permite canonical e bloqueia preload externo", "A3: externo.requisicao varre @import..." |
+| `conteudo.placeholder` | "conteudo.placeholder acusa texto provisório" |
+| `conteudo.claim` | "conteudo.claim acusa promessa de resultado" |
+| `conteudo.hex` | "conteudo.hex acusa cor literal fora do tema", "L2: conteudo.hex também acusa cor literal em SVG" |
+| `nap.divergencia` | "nap.divergencia acusa nome diferente entre HTML e JSON-LD" |
+| `artefato.producao` | "A1: artefato de produção recusa noindex, faixa e dados de teste", "A1: artefato.producao é ignorado no build de rascunho" |
+| `orcamento` | "orcamento falha quando o JS passa de 10 KB gzip" |
+| `saida.obrigatoria` | "saida.obrigatoria acusa arquivos ausentes" |
+| `html.basico` / faixa de revisão | "html.basico acusa ausência de h1 único", "html.basico recusa faixa de revisão em produção" |
+| `html.metaUnica` | "html.metaUnica acusa título repetido" |
+| `sitemap` | "sitemap acusa URL que não foi gerada" |
+
+## Identidade visual provisória
+
+**Status: provisória (C-11 pendente).**
+
+- A paleta em `src/css/estilo.css` e `tailwind.config.js` é uma **aproximação** derivada de um
+  flyer de campanha da unidade Pacajus, obtido em redes sociais. Não é brandbook e não é a marca
+  oficial. Os valores hexadecimais existem apenas no arquivo de tema; templates, JS e conteúdo usam
+  apenas tokens semânticos, e o `--check` falha se encontrar `#RRGGBB` fora do tema.
+- O logo publicado é um **placeholder neutro** (wordmark tipográfico simples em
+  `src/estatico/assets/marca-provisoria.svg`). A marca **não** foi vetorizada, redesenhada ou
+  reconstruída a partir de imagem raster. Não use o flyer como fonte de logo.
+- A fonte caligráfica do flyer não é usada nesta rodada (não há arquivo licenciado disponível). O
+  site usa a pilha de fontes do sistema.
+- Matriz de contraste usada em texto está registrada no topo de `src/css/estilo.css` (todos os
+  pares ≥ 4,5:1; turquesa e dourado não são usados como texto sobre fundo claro; botão primário é
+  verde-petróleo com texto branco).
+- Também falta: fotos reais com autorização, RT com CRM e definição de logo/fonte oficiais. Ver
+  `CONTEUDO-PENDENTE.md`.
+
+## Acessibilidade e JavaScript
+
+- O menu mobile usa `aria-expanded`/`aria-controls`, fecha com `Esc`, devolve o foco ao botão e
+  também fecha com clique fora. Sem JavaScript a navegação permanece visível (o botão só aparece
+  quando o JS está ativo).
+- Os acordeões de preparo são `<details>/<summary>` e funcionam sem JS. O JS apenas sincroniza
+  `aria-expanded` no `summary` e `aria-controls` aponta para o painel; sem JS valem as semânticas
+  nativas do elemento.
+- O mapa é uma fachada: endereço textual e link "Abrir no Google Maps" sempre visíveis. O iframe do
+  Google só é injetado após clique em "Carregar mapa nesta página" (botão revelado pelo JS). Sem JS,
+  o link externo continua disponível.
+- Foco visível global (`outline` de 2 px com offset), skip link como primeiro elemento focável,
+  landmarks e `aria-current="page"` no menu e na trilha. Em superfícies escuras (hero e rodapé) o
+  outline usa o token `--cor-foco-escuro` (branco), com 7,83:1 contra `#0E5C55`; o par está na
+  matriz de contraste do tema.
+- Pendente para a Fase 6: auditoria formal com axe, teste de leitor de tela e revisão responsiva de
+  320 a 1440 px.
+
+## Limitações desta rodada
+
+- Com os dados atuais, o build de produção gera apenas `/` e `/404.html`: as 7 unidades estão
+  `a-confirmar`, os 5 serviços e os 5 preparos estão pendentes. Isso é intencional (AC-04/AC-09).
+  Use `npm run build:rascunho` para revisar as 14 páginas com dados fictícios.
+- `npm run build:go-live` **falha hoje** e lista os bloqueios reais (unidades, menu, rotas Fase 4,
+  RT/CRM, contato institucional e endereço da matriz). Isso é o comportamento esperado até a
+  clínica fechar C-01..C-15.
+- T013 (rodapé) está **parcial**: razão social e CNPJ são publicados; RT/CRM, contato e endereço da
+  matriz dependem de dados ainda não confirmados.
+- `/sobre/`, `/contato/`, `/convenios-e-particular/` e `/politica-de-privacidade/` são Fase 4 e não
+  foram implementadas; o menu deriva das rotas realmente geradas, sem links quebrados, e o go-live
+  estrito exige essas rotas.
+- Blocos editoriais de `paginas.json` são renderizados na home, em unidades, serviços e preparo
+  (tipos `titulo`, `subtitulo`, `paragrafo`, `lista`, `destaque`, `aviso`, `citacao`; texto sempre
+  escapado). As futuras páginas de sobre/convênios/contato podem consumir o mesmo renderizador.
+- JSON-LD nesta rodada é básico (`Organization`, `WebSite`, `MedicalClinic`, `BreadcrumbList`,
+  `MedicalWebPage`); o gerador completo, imagens OG por tipo e auditorias formais são Fase 5/6.
+- Convênios: catálogo vazio (`dados/convenios.json`); a página e a matriz unidade×convênio ficam
+  para T033-T035. A ressalva e a data de atualização já aparecem na página da unidade, inclusive
+  quando houver lista.
+- `npm run dev` é um servidor local simples para pré-visualizar o rascunho; não é o servidor de
+  produção.
+
+## Deploy
+
+- O deploy publica **apenas** a saída de `npm run build` (ou de `npm run build:go-live` quando ele
+  passar). Nunca publique `dist-rascunho/`, que contém faixa de revisão, `noindex` e dados fictícios.
+- `dist/` e `dist-rascunho/` são ignorados no git; `relatorios/` também.
+- O artefato de produção é conferido pelo `--check`: sem `noindex`, sem faixa "VERSÃO DE REVISÃO",
+  sem unidades de teste e sem URL fictícia no `sitemap.xml`.

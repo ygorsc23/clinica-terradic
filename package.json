@@ -1,0 +1,21 @@
+{
+  "name": "terradic-site",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Site institucional da Terradic — HTML estatico gerado por build proprio em Node",
+  "engines": {
+    "node": ">=24.11.0"
+  },
+  "scripts": {
+    "dev": "node scripts/servidor.mjs",
+    "build": "node scripts/build.mjs",
+    "build:rascunho": "node scripts/build.mjs --rascunho",
+    "build:go-live": "node scripts/build.mjs --go-live",
+    "check": "node scripts/build.mjs --rascunho --check",
+    "test": "node --test scripts/testes.mjs"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}

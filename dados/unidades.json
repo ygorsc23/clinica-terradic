@@ -1,0 +1,363 @@
+{
+  "versao": 1,
+  "atualizadoEm": "2026-11-20",
+  "unidades": [
+    {
+      "id": "caninde",
+      "slug": "caninde",
+      "nomeExibicao": "Terradic Canindé",
+      "cidade": "Canindé",
+      "uf": "CE",
+      "cnpjFilial": "14.106.964/0001-23",
+      "matriz": true,
+      "status": "a-confirmar",
+      "endereco": {
+        "logradouro": null,
+        "numero": null,
+        "complemento": null,
+        "bairro": null,
+        "cep": null,
+        "referencia": null
+      },
+      "geo": {
+        "lat": null,
+        "lng": null,
+        "precisao": "aproximada"
+      },
+      "telefones": [],
+      "whatsapp": {
+        "e164": null,
+        "validado": false
+      },
+      "email": null,
+      "horarios": [],
+      "servicos": [],
+      "convenios": [],
+      "atendimentoParticular": null,
+      "comodidades": {
+        "estacionamento": null,
+        "acessivel": null
+      },
+      "observacoesPublicas": null,
+      "fotos": [],
+      "redesSociais": {
+        "instagram": null,
+        "facebook": null
+      },
+      "responsavelTecnico": null,
+      "validacao": {
+        "status": "pendente",
+        "confirmadoPor": null,
+        "data": null,
+        "fontes": []
+      },
+      "atualizadoEm": "2026-11-20"
+    },
+    {
+      "id": "taua",
+      "slug": "taua",
+      "nomeExibicao": "Terradic Tauá",
+      "cidade": "Tauá",
+      "uf": "CE",
+      "cnpjFilial": null,
+      "matriz": false,
+      "status": "a-confirmar",
+      "endereco": {
+        "logradouro": null,
+        "numero": null,
+        "complemento": null,
+        "bairro": null,
+        "cep": null,
+        "referencia": null
+      },
+      "geo": {
+        "lat": null,
+        "lng": null,
+        "precisao": "aproximada"
+      },
+      "telefones": [],
+      "whatsapp": {
+        "e164": null,
+        "validado": false
+      },
+      "email": null,
+      "horarios": [],
+      "servicos": [],
+      "convenios": [],
+      "atendimentoParticular": null,
+      "comodidades": {
+        "estacionamento": null,
+        "acessivel": null
+      },
+      "observacoesPublicas": null,
+      "fotos": [],
+      "redesSociais": {
+        "instagram": null,
+        "facebook": null
+      },
+      "responsavelTecnico": null,
+      "validacao": {
+        "status": "pendente",
+        "confirmadoPor": null,
+        "data": null,
+        "fontes": []
+      },
+      "atualizadoEm": "2026-11-20"
+    },
+    {
+      "id": "crateus",
+      "slug": "crateus",
+      "nomeExibicao": "Terradic Crateús",
+      "cidade": "Crateús",
+      "uf": "CE",
+      "cnpjFilial": null,
+      "matriz": false,
+      "status": "a-confirmar",
+      "endereco": {
+        "logradouro": null,
+        "numero": null,
+        "complemento": null,
+        "bairro": null,
+        "cep": null,
+        "referencia": null
+      },
+      "geo": {
+        "lat": null,
+        "lng": null,
+        "precisao": "aproximada"
+      },
+      "telefones": [],
+      "whatsapp": {
+        "e164": null,
+        "validado": false
+      },
+      "email": null,
+      "horarios": [],
+      "servicos": [],
+      "convenios": [],
+      "atendimentoParticular": null,
+      "comodidades": {
+        "estacionamento": null,
+        "acessivel": null
+      },
+      "observacoesPublicas": null,
+      "fotos": [],
+      "redesSociais": {
+        "instagram": null,
+        "facebook": null
+      },
+      "responsavelTecnico": null,
+      "validacao": {
+        "status": "pendente",
+        "confirmadoPor": null,
+        "data": null,
+        "fontes": []
+      },
+      "atualizadoEm": "2026-11-20"
+    },
+    {
+      "id": "pacajus",
+      "slug": "pacajus",
+      "nomeExibicao": "Terradic Pacajus",
+      "cidade": "Pacajus",
+      "uf": "CE",
+      "cnpjFilial": null,
+      "matriz": false,
+      "status": "a-confirmar",
+      "endereco": {
+        "logradouro": null,
+        "numero": null,
+        "complemento": null,
+        "bairro": null,
+        "cep": null,
+        "referencia": null
+      },
+      "geo": {
+        "lat": null,
+        "lng": null,
+        "precisao": "aproximada"
+      },
+      "telefones": [],
+      "whatsapp": {
+        "e164": null,
+        "validado": false
+      },
+      "email": null,
+      "horarios": [],
+      "servicos": [],
+      "convenios": [],
+      "atendimentoParticular": null,
+      "comodidades": {
+        "estacionamento": null,
+        "acessivel": null
+      },
+      "observacoesPublicas": null,
+      "fotos": [],
+      "redesSociais": {
+        "instagram": null,
+        "facebook": null
+      },
+      "responsavelTecnico": null,
+      "validacao": {
+        "status": "pendente",
+        "confirmadoPor": null,
+        "data": null,
+        "fontes": []
+      },
+      "atualizadoEm": "2026-11-20"
+    },
+    {
+      "id": "boa-viagem",
+      "slug": "boa-viagem",
+      "nomeExibicao": "Terradic Boa Viagem",
+      "cidade": "Boa Viagem",
+      "uf": "CE",
+      "cnpjFilial": null,
+      "matriz": false,
+      "status": "a-confirmar",
+      "endereco": {
+        "logradouro": null,
+        "numero": null,
+        "complemento": null,
+        "bairro": null,
+        "cep": null,
+        "referencia": null
+      },
+      "geo": {
+        "lat": null,
+        "lng": null,
+        "precisao": "aproximada"
+      },
+      "telefones": [],
+      "whatsapp": {
+        "e164": null,
+        "validado": false
+      },
+      "email": null,
+      "horarios": [],
+      "servicos": [],
+      "convenios": [],
+      "atendimentoParticular": null,
+      "comodidades": {
+        "estacionamento": null,
+        "acessivel": null
+      },
+      "observacoesPublicas": null,
+      "fotos": [],
+      "redesSociais": {
+        "instagram": null,
+        "facebook": null
+      },
+      "responsavelTecnico": null,
+      "validacao": {
+        "status": "pendente",
+        "confirmadoPor": null,
+        "data": null,
+        "fontes": []
+      },
+      "atualizadoEm": "2026-11-20"
+    },
+    {
+      "id": "cascavel",
+      "slug": "cascavel",
+      "nomeExibicao": "Terradic Cascavel",
+      "cidade": "Cascavel",
+      "uf": "CE",
+      "cnpjFilial": null,
+      "matriz": false,
+      "status": "a-confirmar",
+      "endereco": {
+        "logradouro": null,
+        "numero": null,
+        "complemento": null,
+        "bairro": null,
+        "cep": null,
+        "referencia": null
+      },
+      "geo": {
+        "lat": null,
+        "lng": null,
+        "precisao": "aproximada"
+      },
+      "telefones": [],
+      "whatsapp": {
+        "e164": null,
+        "validado": false
+      },
+      "email": null,
+      "horarios": [],
+      "servicos": [],
+      "convenios": [],
+      "atendimentoParticular": null,
+      "comodidades": {
+        "estacionamento": null,
+        "acessivel": null
+      },
+      "observacoesPublicas": null,
+      "fotos": [],
+      "redesSociais": {
+        "instagram": null,
+        "facebook": null
+      },
+      "responsavelTecnico": null,
+      "validacao": {
+        "status": "pendente",
+        "confirmadoPor": null,
+        "data": null,
+        "fontes": []
+      },
+      "atualizadoEm": "2026-11-20"
+    },
+    {
+      "id": "quixeramobim",
+      "slug": "quixeramobim",
+      "nomeExibicao": "Terradic Quixeramobim",
+      "cidade": "Quixeramobim",
+      "uf": "CE",
+      "cnpjFilial": null,
+      "matriz": false,
+      "status": "a-confirmar",
+      "endereco": {
+        "logradouro": null,
+        "numero": null,
+        "complemento": null,
+        "bairro": null,
+        "cep": null,
+        "referencia": null
+      },
+      "geo": {
+        "lat": null,
+        "lng": null,
+        "precisao": "aproximada"
+      },
+      "telefones": [],
+      "whatsapp": {
+        "e164": null,
+        "validado": false
+      },
+      "email": null,
+      "horarios": [],
+      "servicos": [],
+      "convenios": [],
+      "atendimentoParticular": null,
+      "comodidades": {
+        "estacionamento": null,
+        "acessivel": null
+      },
+      "observacoesPublicas": null,
+      "fotos": [],
+      "redesSociais": {
+        "instagram": null,
+        "facebook": null
+      },
+      "responsavelTecnico": null,
+      "validacao": {
+        "status": "pendente",
+        "confirmadoPor": null,
+        "data": null,
+        "fontes": []
+      },
+      "atualizadoEm": "2026-11-20"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "versao": 1,
+  "atualizadoEm": "2026-11-20",
+  "servicos": [
+    {
+      "id": "tomografia",
+      "slug": "tomografia",
+      "nome": "Tomografia computadorizada",
+      "nomeCurto": "Tomografia",
+      "resumo": null,
+      "descricao": [],
+      "indicacoes": [],
+      "comoEfeito": [],
+      "duracaoMedia": null,
+      "exigePedidoMedico": true,
+      "preparos": ["tomografia-sem-contraste", "tomografia-com-contraste"],
+      "seo": {
+        "titulo": null,
+        "descricao": null
+      },
+      "status": "pendente"
+    },
+    {
+      "id": "raio-x",
+      "slug": "raio-x",
+      "nome": "Radiografia (raio-X)",
+      "nomeCurto": "Raio-X",
+      "resumo": null,
+      "descricao": [],
+      "indicacoes": [],
+      "comoEfeito": [],
+      "duracaoMedia": null,
+      "exigePedidoMedico": true,
+      "preparos": ["radiografia"],
+      "seo": {
+        "titulo": null,
+        "descricao": null
+      },
+      "status": "pendente"
+    },
+    {
+      "id": "ultrassonografia",
+      "slug": "ultrassonografia",
+      "nome": "Ultrassonografia geral e Doppler",
+      "nomeCurto": "Ultrassonografia",
+      "resumo": null,
+      "descricao": [],
+      "indicacoes": [],
+      "comoEfeito": [],
+      "duracaoMedia": null,
+      "exigePedidoMedico": true,
+      "preparos": ["ultrassonografia-abdome"],
+      "seo": {
+        "titulo": null,
+        "descricao": null
+      },
+      "status": "pendente"
+    },
+    {
+      "id": "mamografia",
+      "slug": "mamografia",
+      "nome": "Mamografia",
+      "nomeCurto": "Mamografia",
+      "resumo": null,
+      "descricao": [],
+      "indicacoes": [],
+      "comoEfeito": [],
+      "duracaoMedia": null,
+      "exigePedidoMedico": true,
+      "preparos": ["mamografia"],
+      "seo": {
+        "titulo": null,
+        "descricao": null
+      },
+      "status": "pendente"
+    },
+    {
+      "id": "consultas-ambulatoriais",
+      "slug": "consultas-ambulatoriais",
+      "nome": "Consultas ambulatoriais",
+      "nomeCurto": "Consultas",
+      "resumo": null,
+      "descricao": [],
+      "indicacoes": [],
+      "comoEfeito": [],
+      "duracaoMedia": null,
+      "exigePedidoMedico": false,
+      "preparos": [],
+      "seo": {
+        "titulo": null,
+        "descricao": null
+      },
+      "status": "pendente"
+    }
+  ]
+}

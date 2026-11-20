@@ -1,0 +1,29 @@
+{
+  "aviso": "NAO USAR EM PRODUCAO — Este arquivo guarda telefones e referencias do levantamento preliminar (guias de terceiros e redes sociais), NAO validados pela clinica. Nenhum script do build pode ler este arquivo para gerar paginas; apenas o validador o consulta para recusar valores identicos aos exemplos (protecao contra copiar e esquecer).",
+  "fonte": "levantamento preliminar do coordenador e pesquisa registrada em specs/001-site-institucional-terradic/research.md",
+  "naoValidado": true,
+  "telefones": [
+    {
+      "valorOriginal": "(85) 3343-3739",
+      "e164": "+558533433739",
+      "observacao": "Fixo de 8 digitos; nao se sabe a unidade nem o setor."
+    },
+    {
+      "valorOriginal": "(85) 9928-8990",
+      "e164": "+558599288990",
+      "observacao": "Celular com 8 digitos apos o DDD; pode nao ser WhatsApp oficial."
+    },
+    {
+      "valorOriginal": "(85) 3348-7349",
+      "e164": "+558533487349",
+      "observacao": "Fixo; levantamento nao informa a unidade."
+    },
+    {
+      "valorOriginal": "99970-4196",
+      "e164": "+558599704196",
+      "observacao": "Celular sem DDD no levantamento; DDD 85 assumido apenas para o exemplo."
+    }
+  ],
+  "enderecos": [],
+  "observacaoEnderecos": "Nenhum endereco completo constava no material disponivel nesta rodada. Preencher aqui somente apos confirmacao, nunca em dados/unidades.json sem validacao."
+}
