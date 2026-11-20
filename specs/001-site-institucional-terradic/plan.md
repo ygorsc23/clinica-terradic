@@ -25,7 +25,7 @@
 
 - **AD-01 — Sem gerador estático de terceiros.** O domínio é pequeno (≈ 20–25 páginas) e o build precisa de regras de validação de conteúdo próprias. Um script de ~300 linhas cobre o caso, elimina dependência de plugin e mantém o gate de publicação sob nosso controle. *Rejeitado:* Eleventy/Astro (mais poder que o necessário, atualização e "mágica" de template), Jekyll (Ruby no ambiente).
 - **AD-02 — Templates com substituição de tokens, não linguagem de template.** Cada tipo de página tem um HTML com marcadores (`{{conteudo}}`, `{{jsonLd}}`, `{{cardsUnidades}}`); o script injeta fragmentos já renderizados. *Rejeitado:* Handlebars/Nunjucks (dependência + curva), loops em template (dificulta validação).
-- **AD-03 — Conteúdo editorial em JSON estruturado por blocos, não Markdown.** Blocos (`titulo`, `paragrafo`, `lista`, `destaque`, `aviso`) permitem validar placeholder e aplicar estilo consistente sem parser. *Rejeitado:* Markdown (parser próprio ou dependência; risco de HTML arbitrário).
+- **AD-03 — Conteúdo editorial em JSON estruturado por blocos, não Markdown.** Blocos (`titulo`, `paragrafo`, `lista`, `destaque`, `aviso`) permitem validar placeholder e aplicar estilo consistente sem parser. *Rejeitado:* Markdown (parser próprio ou dependência; risco de HTML arbitrário). **Classificação editorial (vinculante):** texto que informa — frase, título com conteúdo, chamada, aviso redigido — é editorial e vive em `paginas.json`; rótulo que opera a interface — "pular para o conteúdo", "abre em nova aba", "menu", breadcrumb, rótulo de campo — pode ficar no template. Critério funcional, não de tamanho; dúvida se resolve com "isto muda se o cliente mudar o texto institucional?". É decisão registrada (FR-48/RN-12) e não deve ser reaberta em revisões futuras sem mudança de escopo.
 - **AD-04 — `MedicalClinic` como tipo único por unidade.** `MedicalClinic` já é subtipo de `MedicalBusiness` → `LocalBusiness`; declarar os dois como nós separados duplicaria endereço/telefone e cria risco de inconsistência. Um nó `MedicalClinic` + `Organization` da marca (`parentOrganization`) satisfaz "MedicalClinic + LocalBusiness".
 - **AD-05 — Mapa com fachada clicável.** Nenhum iframe/script de terceiro no carregamento inicial (performance, cookies, LGPD). O endereço textual é sempre visível; o mapa carrega após clique explícito, com link alternativo para o Google Maps.
 - **AD-06 — Unidade não confirmada não é publicada.** `status` no JSON controla geração de página e sitemap. *Rejeitado:* publicar todas e corrigir depois (dano reputacional e risco de SEO).
@@ -154,7 +154,7 @@ clinica-terradic/
                     "instrucoes": ["CPF", "protocolo e senha"], "ambienteExterno": true },
   "contatoInstitucional": { "email": null, "telefoneE164": null },
   "responsavelTecnico": { "nome": null, "crm": null, "crmUf": "CE",
-                          "especialidade": "Radiologia e Diagnóstico por Imagem",
+                          "especialidade": null,
                           "status": "pendente" },
   "redesSociais": { "instagram": null, "facebook": null },
   "analytics": null,
@@ -165,7 +165,7 @@ clinica-terradic/
 }
 ```
 
-Regras: `urlBase` sem barra final e sem `www`; `portalExames.url` é a **única** URL externa de exames aceita pelo validador. `contatoInstitucional` guarda e-mail/telefone; o **endereço do rodapé** é resolvido da unidade com `matriz: true` em `unidades.json` (fonte única), nunca duplicado em `site.json` nem tomado da unidade visitada (FR-02/FR-13).
+Regras: `urlBase` sem barra final e sem `www`; `portalExames.url` é a **única** URL externa de exames aceita pelo validador. `contatoInstitucional` guarda e-mail e o telefone institucional — este último precisa espelhar o telefone da matriz, nunca ser uma segunda verdade. O **endereço e o telefone do rodapé** são resolvidos do registro com `matriz: true` em `unidades.json` (fonte única — publicável ou apenas confirmado), nunca duplicados em `site.json` nem tomados da unidade visitada (FR-02/FR-13/AC-30). Se `contatoInstitucional.telefoneE164` for preenchido, o validador exige igualdade com o telefone institucional da matriz; divergência é erro de build. `responsavelTecnico` só é considerado completo com `nome`, `crm`, `crmUf` e `especialidade` — a renderização é condicional ao conjunto, para não emitir pontuação órfã (FR-29/AC-33).
 
 ### 3.2 `dados/unidades.json`
 
@@ -221,7 +221,8 @@ Campos e semântica:
 | `geo` | recomendado | ausente → JSON-LD sem `geo` (não inventar coordenada) e go-live não bloqueia; `precisao` (`exata`/`aproximada`) só com origem registrada em `validacao.fontes[]`; **nunca** derivar de CEP nem estimar por aproximação sem fonte (AC-13) |
 | `telefones[]` | ≥ 1 | `e164` obrigatório se `validado: true` |
 | `horarios[]` | ≥ 1 | `dias` em `seg..dom`; `abre`/`fecha` em `HH:MM` |
-| `servicos[]` | ≥ 1 | referências a `servicos.json` |
+| `servicos[]` | ≥ 1 **aprovado** | referências a `servicos.json`; ao menos um serviço `aprovado` é condição de publicação (FR-12/AC-31). Seção de serviços vazia e `availableService` ausente reprovam o gate — publicar unidade sem serviço é proibido |
+| `responsavelTecnico` (unidade) | quando existir | exige o conjunto `nome` + `crm` + `crmUf` + `especialidade`; incompleto → bloco omitido e bloqueio no go-live (FR-29/AC-33) |
 | `convenios[]` | pode ser vazio | referências a `convenios.json`; vazio → "confirmar com a unidade" |
 | `fotos[]` | não | `{ "arquivo", "alt", "autorizacaoImagem": true }` |
 | `validacao.status` | sim | `confirmado` exigido no go-live; unidade não confirmada é excluída do build de produção |
@@ -251,14 +252,16 @@ Relação serviço↔unidade é **derivada** de `unidades[].servicos` (nunca dup
 ### 3.4 `dados/convenios.json`
 
 ```json
-{ "convenios": [
+{ "versao": 1,
+  "atualizadoEm": "2026-11-20",
+  "convenios": [
   { "id": "unimed", "nome": "Unimed", "tipo": "medicina-de-grupo",
     "exibirLogo": false, "logoAutorizado": false,
     "aviso": "Cobertura sujeita a confirmação junto à operadora e à unidade." }
 ]}
 ```
 
-Somente nomes em texto por padrão; logotipo exige `logoAutorizado: true` (RN-03).
+`atualizadoEm` no nível do catálogo é **obrigatório sempre que existir convênio** e é a data exibida na página; lista vazia dispensa a data. Convênio cadastrado sem `atualizadoEm` não nulo reprova o build (AC-29/AC-33). Somente nomes em texto por padrão; logotipo exige `logoAutorizado: true` (RN-03).
 
 ### 3.5 `dados/preparos.json`
 
@@ -295,13 +298,17 @@ Blocos por página, sem HTML cru:
   "sobre": { "…": "…" },
   "convenios": { "…": "…" },
   "contato": { "…": "…" },
-  "privacidade": { "publicada": false, "blocos": [] }
+  "privacidade": { "blocos": [] }
 }}
 ```
 
 Tipos de bloco permitidos: `titulo`, `subtitulo`, `paragrafo`, `lista`, `destaque`, `aviso`, `citacao`. O renderizador escapa texto (sem `innerHTML`) — conteúdo é texto, não marcação.
 
-**Decisão (AD-03 confirmada):** o renderizador de blocos é implementado nesta rodada. **Nenhum texto editorial pode ficar fixo em template** — home, sobre, convênios, contato e privacidade consomem `paginas.*.blocos`; o template contém apenas estrutura, marcadores e rótulos de interface (navegação, botões, breadcrumb, rótulos de campo). A home passa a consumir `paginas.home.blocos` nesta rodada. Bloco com `status: pendente` não é renderizado no build de produção e alimenta o relatório; página editorial sem nenhum bloco aprovado não é publicável.
+**Decisão (AD-03 confirmada):** o renderizador de blocos é implementado nesta rodada. **Nenhum texto editorial pode ficar fixo em template** — home, sobre, convênios, contato e privacidade consomem `paginas.*.blocos`; o template contém apenas estrutura, marcadores e rótulos de interface (navegação, botões, breadcrumb, rótulos de campo). A home passa a consumir `paginas.home.blocos` nesta rodada.
+
+**Classificação editorial (registro vinculante, FR-48/RN-12):** texto que **informa** — frase, título com conteúdo, chamada, aviso redigido — vai para `paginas.json` em blocos; rótulo que **opera a interface** — "pular para o conteúdo", "abre em nova aba", "menu", "Anterior/Próximo", nome de campo — pode permanecer no template. O critério é funcional, não de tamanho; na dúvida, "isto muda se o cliente mudar o texto institucional?" decide. Revisões futuras não reabrem a discussão sem mudança de escopo.
+
+**`bloco.status`** ∈ `aprovado | pendente`. Bloco `pendente` **não** é renderizado no build de produção, entra no relatório de pendências e, se pertencer a página publicável, **bloqueia o go-live** (FR-49/AC-32). Página editorial sem nenhum bloco aprovado não é publicável.
 
 ---
 
@@ -318,7 +325,7 @@ Tipos de bloco permitidos: `titulo`, `subtitulo`, `paragrafo`, `lista`, `destaqu
 | `/convenios-e-particular/` | catálogo + matriz unidade×convênio | `convenios.html` |
 | `/sobre/` | `paginas.sobre` + RT | `sobre.html` |
 | `/contato/` | unidades + contato institucional | `contato.html` |
-| `/politica-de-privacidade/` | condicional (`privacidade.publicada`) | `privacidade.html` |
+| `/politica-de-privacidade/` | condicional (`site.privacidade.politicaPublicada`) | `privacidade.html` |
 | `/404.html` | fixo | `404.html` |
 
 Saída: `dist/<rota>/index.html` (diretório, trailing slash), `dist/404.html`, `dist/sitemap.xml`, `dist/robots.txt`, `dist/assets/estilo.css`, `dist/assets/app.js`, estáticos copiados.
@@ -337,13 +344,13 @@ Saída: `dist/<rota>/index.html` (diretório, trailing slash), `dist/404.html`, 
 |---|---|---|
 | Rascunho | `npm run build:rascunho` | Tolerante; usa dados de teste; gera faixa de revisão; nunca produz artefato publicável. |
 | Produção (tolerante) | `npm run build` | Tolerante com entidades não publicáveis (exclui e relata); **estrito com tudo o que publica**. O `dist/` não é publicável sem go-live verde. |
-| Go-live (estrito) | `npm run build:go-live` | Falha com qualquer bloqueio: preparo não aprovado necessário a serviço publicável, unidade ativa sem telefone validado/`fontes`/`confirmadoPor`/`data`, RT não confirmado, contato institucional ausente, nenhuma unidade publicável, navegação vazia ou com menos de 2 itens, rota estrutural não gerada. |
+| Go-live (estrito) | `npm run build:go-live` | Falha com qualquer bloqueio: unidade ativa sem serviço aprovado, preparo não aprovado necessário a serviço publicável, unidade ativa sem telefone validado/`fontes`/`confirmadoPor`/`data`, RT não confirmado ou incompleto (nome/CRM/UF/especialidade), contato institucional ausente, endereço/telefone da matriz ausentes ou divergentes do rodapé, convênio sem `atualizadoEm`, bloco editorial pendente em página publicável, nenhuma unidade publicável, navegação vazia ou com menos de 2 itens, rota estrutural não gerada. |
 
 **Regra de ouro:** `dist/` do build de produção tolerante nunca é publicado; deploy de produção só a partir de `--go-live` verde. Staging pode usar o build tolerante (com `noindex`).
 
 1. **Carregar** todos os JSON de `dados/` e validar sintaxe.
-2. **Validar schema e integridade:** campos obrigatórios por status, slugs únicos e normalizados, refs de `servicos`/`convenios`/`preparos` existentes, `e164` válido (`^\+55\d{10,11}$`), CEP (`^\d{8}$`), horários coerentes (`abre < fecha`), `urlBase` e `portalExames.url` exatamente as configuradas. Erros acumulados com `arquivo:campo:unidade`.
-3. **Aplicar gates de publicação:** unidade publicável, serviço aprovado, preparo aprovado. No build de produção, entidade não publicável é **excluída e relatada** sem derrubar o build; em `--go-live`, cada bloqueio derruba. Bloco editorial pendente é omitido e relatado; página editorial sem bloco aprovado não é publicável. Em `--rascunho`, gates viram avisos e páginas ganham faixa "DADOS EM CONFIRMAÇÃO".
+2. **Validar schema e integridade:** campos obrigatórios por status, slugs únicos e normalizados, refs de `servicos`/`convenios`/`preparos` existentes, `e164` válido (`^\+55\d{10,11}$`), CEP (`^\d{8}$`), horários coerentes (`abre < fecha`), `urlBase` e `portalExames.url` exatamente as configuradas. Validar também: `contatoInstitucional.telefoneE164` idêntico ao telefone institucional da matriz (quando preenchido); RT completo (nome/CRM/UF/especialidade) ou `null`; `convenios.atualizadoEm` não nulo quando houver convênio; `bloco.status` ∈ `aprovado|pendente`. Erros acumulados com `arquivo:campo:unidade`.
+3. **Aplicar gates de publicação:** unidade publicável (inclui ≥ 1 serviço aprovado), serviço aprovado, preparo aprovado. No build de produção, entidade não publicável é **excluída e relatada** sem derrubar o build; em `--go-live`, cada bloqueio derruba. Bloco editorial pendente é omitido e relatado; página editorial sem bloco aprovado não é publicável; bloco pendente em página publicável **bloqueia o go-live**. Em `--rascunho`, gates viram avisos e páginas ganham faixa "DADOS EM CONFIRMAÇÃO".
 4. **Calcular derivados:** mapa serviço→unidades, convênio→unidades, próxima unidade que realiza serviço, horários formatados, `sameAs`, breadcrumbs.
 5. **Renderizar parciais** (header, footer, CTA, avisos) e então cada página com injeção de fragmentos e metadados, incluindo os blocos de `paginas.json`.
 6. **Gerar JSON-LD** por página (ver §7) e serializar dentro de `<script type="application/ld+json">` com escape de `</`.
@@ -354,7 +361,13 @@ Saída: `dist/<rota>/index.html` (diretório, trailing slash), `dist/404.html`, 
 
 **Determinismo:** nenhum timestamp gerado em runtime; `lastmod` vem de `atualizadoEm`; saída ordenada por `slug`; `.nvmrc` e `package-lock.json` versionados; build não acessa rede. **Exceção declarada:** o ano do rodapé (FR-02) vem do relógio do build; duas execuções consecutivas no mesmo ano produzem o mesmo hash, e a virada de ano altera o hash — esperado e documentado no README e no relatório (AC-24).
 
-**Gate de QA local (`--check`):** além do build, verifica links internos quebrados no `dist/`, presença de `tel:`/`rel` corretos, ausência de `placeholder`/`[CONFIRMAR]`/`lorem`, NAP **equivalente após normalização** (CEP só dígitos; telefone em E.164; comparação do texto visível, não apenas de atributos) entre HTML, JSON-LD e dado canônico, e varredura do CSS compilado por `@import`, `url(http…)` e `@font-face` externo.
+**Gate de QA local (`--check`):** além do build, verifica links internos quebrados no `dist/`, presença de `tel:`/`rel` corretos, ausência de `placeholder`/`[CONFIRMAR]`/`lorem`, NAP **equivalente após normalização** (CEP só dígitos; telefone em E.164; comparação do texto visível, não apenas de atributos) entre HTML, JSON-LD e dado canônico. O **rodapé entra na checagem em todas as páginas publicadas**, comparado ao registro da matriz (`matriz: true`) e ao contato institucional — nunca ao da unidade; ausência ou divergência reprova (AC-30). Varredura do CSS compilado por `@import`, `url(http…)` e `@font-face` externo.
+
+**Gate de artefato (NFR-12/AC-34)** — opera sobre o `dist/` já escrito, não só sobre estruturas em memória:
+- `slugsTeste` (unidades de teste conhecidas) é procurado em **todos** os HTML **e no `sitemap.xml`**;
+- `noindex` é detectado por presença de `robots` e `noindex` na `<meta>`, **independentemente da ordem dos atributos**;
+- o `sitemap.xml` **existente** é auditado (base permitida, URLs fictícias, slug de teste), além do sitemap gerado na mesma execução;
+- `<meta name="robots" content="noindex">` em página publicável do build de produção reprova, exceto `404.html`; a faixa "VERSÃO DE REVISÃO" nunca aparece na produção.
 
 **Tempo de build esperado:** < 5 s (sem imagens), viabilizando deploy por push.
 
@@ -401,7 +414,7 @@ Preenchimento dos templates e limite de 60 caracteres:
 Um grafo por página:
 
 - `Organization` (global, `@id: {urlBase}/#organizacao`): nome, `legalName`, `taxID`, `url`, `logo`, `sameAs`.
-- `MedicalClinic` (`@id: {urlBase}/unidades/{slug}/#clinica`): `name`, `url`, `telephone`, `address` (`PostalAddress` com `streetAddress`, `addressLocality`, `addressRegion`, `postalCode`, `addressCountry: BR`), `geo` (só se confirmado), `openingHoursSpecification`, `medicalSpecialty: "Radiology"`, `availableService` (`MedicalTest` com `name`), `parentOrganization` → Organization, `areaServed` (`City`), `sameAs` (redes da unidade).
+- `MedicalClinic` (`@id: {urlBase}/unidades/{slug}/#clinica`): `name`, `url`, `telephone`, `address` (`PostalAddress` com `streetAddress`, `addressLocality`, `addressRegion`, `postalCode`, `addressCountry: BR`), `geo` (só se confirmado), `openingHoursSpecification`, `medicalSpecialty: "Radiology"`, `availableService` (`MedicalTest` com `name`, sempre com ao menos um item — unidade sem serviço aprovado não é publicada), `parentOrganization` → Organization, `areaServed` (`City`), `sameAs` (redes da unidade).
 - `MedicalWebPage`/`WebPage` para páginas de serviço e preparo, `isPartOf` → `WebSite`.
 - `BreadcrumbList` em todas as páginas internas.
 - `WebSite` apenas na home (`@id: {urlBase}/#site`), sem `SearchAction` (não há busca).
@@ -414,7 +427,7 @@ Um grafo por página:
 
 - `robots.txt`: `User-agent: * / Allow: /` + `Sitemap:` absoluto. Nenhum `Disallow` em produção; ambiente de staging usa `noindex` via flag de build (`--base-url` de staging + meta robots), nunca alterando `robots.txt` à mão.
 - `sitemap.xml` com `loc` absoluto, `lastmod` (data de atualização dos dados) e sem URLs de rascunho.
-- NAP equivalente após normalização documentada (CEP só dígitos; telefone em E.164; texto visível comparado, não apenas atributos) entre página, JSON-LD, rodapé institucional e Google Business Profile; divergência é defeito de build (checagem no `--check`). O rodapé é comparado ao endereço da matriz, não ao da unidade (FR-02).
+- NAP equivalente após normalização documentada (CEP só dígitos; telefone em E.164; texto visível comparado, não apenas atributos) entre página, JSON-LD, rodapé institucional e Google Business Profile; divergência é defeito de build (checagem no `--check`). O rodapé é comparado, em todas as páginas, ao endereço e ao telefone da matriz — nunca ao da unidade — e ao contato institucional; ausência é bloqueio de go-live (FR-02/AC-30).
 - Links internos contextuais: unidade → serviços da unidade → preparo; serviço → unidades; preparo → serviço; home → 5 serviços + unidades; rodapé com link para todas as unidades (profundidade ≤ 2).
 - Após go-live: Search Console (domínio + sitemap), Bing Webmaster, e reivindicação/atualização de GBP por unidade (fora do escopo de código, mas dependência de resultado).
 
@@ -449,7 +462,10 @@ Um grafo por página:
 | Camada | O que | Como | Quando |
 |---|---|---|---|
 | Dados | Schema, refs, formatos, gate de publicação, NAP normalizado (texto visível × JSON-LD × canônico) | `node scripts/build.mjs --check` | Cada build/PR |
-| Build | Determinismo no mesmo ano, exceção do ano do rodapé, falha em dado ausente e go-live estrito | 2 builds + hash; teste negativo com pendência em `build` e `--go-live` | PR |
+| Rodapé | NAP do rodapé em **todas** as páginas: endereço/telefone × matriz × contato institucional; ausência e divergência | `--check` + build negativo com matriz incompleta | Cada build/PR |
+| Editorial | `bloco.status`: pendente oculto na produção, presente no relatório e bloqueante no go-live de página publicável; sem texto editorial em template (classificação FR-48/RN-12) | Teste negativo + revisão de template | PR |
+| Gate de artefato | `slugsTeste` em HTML **e** `sitemap.xml`, `noindex` fora de ordem de atributo, auditoria do sitemap existente | Testes negativos no `--check` | PR |
+| Build | Determinismo no mesmo ano, exceção do ano do rodapé, falha em dado ausente e go-live estrito (inclui unidade sem serviço aprovado, RT incompleto, convênio sem `atualizadoEm`) | 2 builds + hash; teste negativo com pendência em `build` e `--go-live` | PR |
 | Links | Links internos e externos, `tel:`, `rel` | `--check` no `dist/` | PR |
 | SEO | Metadados únicos, canonical, sitemap, JSON-LD | `--check` + Rich Results Test + Schema Validator | PR + antes do go-live |
 | A11y | axe, teclado, leitor de tela | axe DevTools (5 páginas), tabulação completa, NVDA/VoiceOver spot check | Pré-go-live e a cada mudança de layout |
@@ -473,6 +489,7 @@ Projeto novo: tudo é criado. Áreas com maior chance de retrabalho:
 4. `dados/preparos.json` + `src/templates/preparo.html` — dependem do RT (C-09).
 5. `dados/site.json` — domínio, RT e portal; mudanças afetam canonical, sitemap e todos os links.
 6. `src/js/app.js` — pequeno, mas qualquer crescimento ameaça o orçamento de 10 KB.
+7. `src/templates/parciais/footer.html` + `scripts/lib/checagens.mjs` — rodapé com fonte única na matriz, NAP do rodapé em todas as páginas e gate de artefato (AC-30/AC-34).
 
 ---
 
@@ -496,6 +513,8 @@ Projeto novo: tudo é criado. Áreas com maior chance de retrabalho:
 | R-14 | Dados de saúde vazarem por URL/parâmetro | Baixa | Alto (LGPD) | Nenhum parâmetro de exame em URL; portal só como link; revisão final |
 | R-15 | Dependência de CDN/fonte de terceiro reintroduzida | Baixa | Médio | `--check` falha se houver requisição externa no HTML e no CSS compilado (`@import`, `url(http…)`, `@font-face` externo) |
 | R-16 | `dist/` do build de produção tolerante ser publicado por engano, com entidade excluída ou conteúdo pendente | Média | Alto | Deploy só a partir de `--go-live` verde (AD-12); staging com `noindex`; README e checklist de publicação explícitos |
+| R-17 | Rodapé e páginas divergirem sobre o contato institucional (duas fontes, ou rodapé vazio enquanto a página diz exibir a matriz) | Média | Alto (NAP/credibilidade) | Fonte única no registro `matriz: true`; telefone institucional de `site.json` precisa ser idêntico; NAP do rodapé em todas as páginas; go-live exige o dado (AC-30) |
+| R-18 | Gate de artefato frágil: depender da ordem dos atributos de `<meta>`, ignorar o `sitemap.xml` ou auditar só o que está em memória | Média | Alto (artefato de teste vaza) | NFR-12/AC-34: regex independente de ordem, varredura de `slugsTeste` em HTML e sitemap, auditoria do `dist/` já escrito |
 
 ---
 
@@ -511,9 +530,9 @@ Backend, CMS, área do paciente, integração com Mobilemed, agendamento, pagame
 
 | Rodada | Escopo | Estado |
 |---|---|---|
-| 1 | F0–F3 (parcial): fundação, build, CSS base, layout global, unidades, serviços e preparo | concluída; permanecem parciais T010 (identidade oficial, depende de C-11) e T013 (rodapé sem RT/contato institucional, AC-21 pendente de C-03/C-08); T030 (revisão do RT) segue com o cliente; o versionamento git (T001) entra na rodada 2 |
-| 2 | Correções do QA (spec/plan/tasks), renderizador de blocos editoriais (home inclusa), git (versionamento do repositório) e versão HTML da proposta | em andamento |
-| 3 | F4 (sobre, convênios, contato, política de privacidade) + F5 (SEO completo) + F6 (acessibilidade/performance) | planejada |
+| 1 | F0–F3 (parcial): fundação, build, CSS base, layout global, unidades, serviços e preparo | concluída; permanecem parciais T010 (identidade oficial, depende de C-11) e T013 (rodapé sem RT/contato institucional, AC-21 pendente de C-03/C-08); T030 (revisão do RT) segue com o cliente |
+| 2 | Correções do QA (spec/plan/tasks), renderizador de blocos editoriais (home inclusa), git (T001) e versão HTML da proposta | concluída — T001 fechada em 2026-11-20 (commits `d056e8a` e `393c73e`, árvore limpa); os gates do QA da rodada 2 foram incorporados ao spec/plano/tarefas |
+| 3 | F4 (sobre, convênios, contato, política de privacidade) + F5 (SEO completo) + F6 (acessibilidade/performance) | em andamento — F4 em execução; conteúdo pendente mantém páginas fora da produção e o go-live vermelho (esperado, não defeito) |
 | Pós-cliente | F7 (conteúdo final e aceite do RT) e F8 (go-live) | dependente do cliente |
 
 **Fases:**
@@ -524,7 +543,7 @@ Backend, CMS, área do paciente, integração com Mobilemed, agendamento, pagame
 | F1 | Layout global (header/footer/CTA), tokens, home estrutural | 1 | Não (visual final depois) |
 | F2 | Unidades: JSON, índice, página por unidade, mapa-fachada | 1 | Parcial (dados reais) |
 | F3 | Serviços + preparo com acordeões | 1 (parcial) | Parcial (textos/RT) |
-| F4 | Convênios, sobre/RT, contato, política de privacidade | 3 | Parcial |
+| F4 | Convênios, sobre/RT, contato, política de privacidade | 3 (em execução) | Parcial |
 | F5 | SEO técnico completo (JSON-LD, sitemap, OG, metadados) | 3 | Parcial (RT; `geo` é opcional — AC-13) |
 | F6 | A11y, performance, revisão responsiva | 3 | Não |
 | F7 | Conteúdo final, checklist CFM, aceite do RT | Pós-cliente | Sim (bloqueante) |
@@ -544,7 +563,7 @@ Backend, CMS, área do paciente, integração com Mobilemed, agendamento, pagame
 | F7 | Futuro (pós-cliente) | 6 — Conteúdo final e aprovação |
 | F8 | Futuro (pós-cliente) | 7 — Publicação |
 
-A rodada 2 não entrega fase nova: corrige pendências de QA dos artefatos, conclui o renderizador de blocos editoriais, versiona o repositório (T001) e produz a versão HTML da proposta.
+A rodada 2 não entregou fase nova: corrigiu pendências de QA dos artefatos, concluiu o renderizador de blocos editoriais, versionou o repositório (T001) e produziu a versão HTML da proposta. A rodada 3 executa F4–F6; enquanto o conteúdo da clínica não chegar, as páginas de F4 permanecem fora da produção (ou com blocos pendentes omitidos) e o go-live continua vermelho — comportamento esperado do gate, não regressão.
 
 ---
 
