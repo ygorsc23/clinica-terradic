@@ -5,11 +5,12 @@ telerradiologia no Ceará). O site é gerado por um build próprio em Node: HTML
 compilado via CLI (nunca CDN) + um único bundle de JavaScript vanilla. Não há backend, banco de
 dados, formulário, cookie próprio ou analytics.
 
-Este repositório está na **segunda rodada de implementação** (Fases 0, 1, 2 e parte da Fase 3 do
-`specs/001-site-institucional-terradic/tasks.md`), com as correções do QA da rodada 1: gate
-estrito de go-live, telefone validado, identificação do rodapé, artefato de rascunho separado,
-auditoria da produção real, blocos editoriais e ajustes de acessibilidade/conteúdo. Convênios,
-Sobre/Contato, SEO completo e deploy ainda não foram implementados.
+Este repositório está na **quarta rodada de implementação**: as Fases 0 a 4 do
+`specs/001-site-institucional-terradic/tasks.md` estão implementadas (com as correções do QA das
+rodadas anteriores) e a Fase 5 (SEO técnico) foi concluída. A Fase 6 está **parcial**: existe uma
+auditoria local via CDP para responsividade, foco e comportamento sem JavaScript, mas a auditoria
+formal com axe, o teste de teclado/leitor de tela, a revisão responsiva manual e o Lighthouse seguem
+pendentes. Deploy e go-live continuam bloqueados pelos dados do cliente (C-01..C-15; T013 parcial).
 
 ## Requisitos
 
@@ -30,11 +31,12 @@ npm ci
 | `npm run build:go-live` | Gate estrito de publicação: exige unidade publicável, menu com ao menos 2 itens, rotas estruturais, preparos aprovados, RT/CRM, contato institucional e endereço da matriz. Falha listando **todos** os bloqueios de uma vez. Hoje falha (dados pendentes) — comportamento esperado. |
 | `npm run build:rascunho` | Build de revisão: inclui entidades pendentes, usa `dados-teste/unidades.exemplo.json` quando existir e adiciona a faixa "VERSÃO DE REVISÃO — DADOS NÃO CONFIRMADOS" + `noindex`. Grava `dist-rascunho/`. |
 | `npm run check` | `--rascunho --check`: valida dados, gera o site de revisão em `dist-rascunho/` e roda **todas** as regras de QA sobre o rascunho e sobre uma produção real gerada em diretório temporário (links, `tel:`, `rel`, NAP visível, hex, claims, orçamento, requisição externa em HTML/JS/CSS, artefato de produção). Também confere que o `dist/` de produção não foi alterado. |
-| `npm test` | Testes negativos com `node:test` (validador de dados, regras do `--check`, go-live, blocos e metadados). |
+| `npm test` | Testes negativos com `node:test` (validador de dados, regras do `--check`, go-live, blocos, metadados e SEO). |
 
 O build não acessa a rede. A única chamada externa é o Tailwind CLI local.
 
-`npm run check` grava o artefato de revisão em `dist-rascunho/` (ignorado no git) e **não** sobrescreve `dist/`. O relatório em
+`npm run check` grava o artefato de revisão em `dist-rascunho/` (ignorado no git) e **não** sobrescreve `dist/`. Como o script já inclui `--rascunho`, `npm run check -- --base-url=...` também grava e audita em `dist-rascunho/`. Para gerar e auditar staging em `dist-staging/`, rode
+`node scripts/build.mjs --check --base-url=...` **sem** `--rascunho`. Nos dois casos `dist/` não é tocado. O relatório em
 `relatorios/` é sempre gerado a partir dos dados reais, inclusive quando o build é de rascunho.
 O deploy publica **apenas** a saída de `npm run build` (ou de `npm run build:go-live` quando ele passar).
 
@@ -44,13 +46,14 @@ O deploy publica **apenas** a saída de `npm run build` (ou de `npm run build:go
 node scripts/build.mjs --rascunho
 node scripts/build.mjs --go-live
 node scripts/build.mjs --check
-node scripts/build.mjs --base-url=https://staging.exemplo.com
+node scripts/build.mjs --check --base-url=https://staging.exemplo.com
 ```
 
 `--go-live` implica produção + auditoria completa; ele não gera `dist/` se o gate falhar.
 `--base-url` troca as URLs geradas (canonical, sitemap, robots) e coloca o build em modo staging:
-todas as páginas recebem `noindex, follow` e o `robots.txt` sai com `Disallow: /`. O `dados/site.json`
-continua exigindo `https://terradic.com.br`; nada disso afeta o build de produção.
+todas as páginas recebem `noindex, follow` e o `robots.txt` sai com `Disallow: /`. A saída de staging
+vai para `dist-staging/` (nunca para `dist/`); com `--rascunho`, a saída continua em `dist-rascunho/`.
+O `dados/site.json` continua exigindo `https://terradic.com.br`; nada disso afeta o build de produção.
 
 ## Estrutura
 
@@ -65,12 +68,13 @@ src/estatico/     favicon, marca provisória, imagens OG por tipo (og-*.png)
 scripts/          build.mjs, servidor.mjs, testes.mjs, lib/*.mjs
 dist/             saída de produção gerada (ignorada no git)
 dist-rascunho/    saída de revisão do --rascunho/--check (ignorada no git)
+dist-staging/     saída de pré-visualização com --base-url (ignorada no git)
 relatorios/       pendencias.md e pendencias.json (ignorados no git)
 ```
 
-O build escreve `dist/<rota>/index.html` (ou `dist-rascunho/<rota>/index.html` em revisão),
-`404.html`, `sitemap.xml`, `robots.txt`, `assets/estilo.css`, `assets/app.js` e copia
-`src/estatico/` para a saída.
+O build escreve `dist/<rota>/index.html` (ou `dist-rascunho/<rota>/index.html` em revisão e
+`dist-staging/<rota>/index.html` em staging), `404.html`, `sitemap.xml`, `robots.txt`,
+`assets/estilo.css`, `assets/app.js` e copia `src/estatico/` para a saída.
 
 ## Como editar conteúdo
 
@@ -115,6 +119,31 @@ JSON.
 3. Para publicar: `revisao.status: "aprovado"` **exige** `revisao.responsavel`, `revisao.crm` e
    `revisao.data`. O build de produção falha se faltar qualquer um.
 4. Adicione o preparo ao serviço correspondente em `servicos[].preparos`.
+
+### Adicionar ou editar um convênio
+
+1. Em `dados/convenios.json`, crie o convênio com `id` e `nome` únicos. Quando a lista tiver ao
+   menos um item, `atualizadoEm` passa a ser obrigatório no formato `AAAA-MM-DD`.
+2. Associe o convênio às unidades em `unidades[].convenios` pelos `id`. A lista unidade × convênio
+   é derivada no build; não duplique os nomes nas unidades.
+3. Enquanto a cobertura não estiver confirmada com a operadora, mantenha o convênio fora da lista.
+   A ressalva e a data de atualização vêm do bloco `convenios-ressalva` de `paginas.json` e de
+   `convenios.atualizadoEm`, e aparecem na página da unidade e em `/convenios-e-particular/`.
+4. `exibirLogo: true` exige `logoAutorizado: true`; sem autorização, use apenas o nome.
+5. Rode `npm run check` e confira a página de convênios e as unidades associadas.
+
+### Editar blocos editoriais de `paginas.json`
+
+1. Cada página em `dados/paginas.json` tem `seo.titulo`/`seo.descricao` e uma lista `blocos`.
+2. Cada bloco tem `tipo` (`titulo`, `subtitulo`, `paragrafo`, `lista`, `destaque`, `aviso` ou
+   `citacao`), `status` (`pendente` ou `aprovado`) e `texto`; bloco do tipo `lista` usa `itens`.
+   O `id` é obrigatório quando o template referencia o bloco (ex.: `marca-subtitulo`, `hero-*`,
+   `servicos-*`, `unidades-*`, `portal-*`, `aviso-externo`, `mapa-aviso`, `convenios-ressalva`).
+3. Bloco `pendente` aparece apenas no build de rascunho, é omitido da produção e entra no relatório
+   de pendências; o go-live reprova a página enquanto houver bloco pendente.
+4. Não escreva frase editorial direto no template: o teste `R35-M1` falha se houver texto longo fora
+   de `{{...}}`. Rótulos de interface (menu, "Pular para o conteúdo", "abre em nova aba") podem
+   permanecer no template.
 
 ## Regras aplicadas pelo build
 
@@ -215,10 +244,12 @@ não esteja na lista de rótulos de interface/revisão permitidos.
   institucional), ≤ 200 KB, geradas uma vez a partir dos tokens do tema, sem logo ou claim. O build
   apenas copia; não gera imagem em runtime.
 - JSON-LD: `Organization` com `legalName`, `taxID` e `sameAs` quando houver; `MedicalClinic` por
-  unidade com endereço completo, `geo` só quando confirmado, telefone, horários,
-  `availableService`, `parentOrganization` e `areaServed`; `MedicalWebPage` para serviço e preparo;
+  unidade com endereço completo, `geo` apenas quando há coordenadas com `precisao` (`exata` ou
+  `aproximada`) e `validacao.fontes` registrada, telefone, horários, `availableService`,
+  `parentOrganization` e `areaServed`; `MedicalWebPage` para serviço e preparo;
   `BreadcrumbList` em todas as páginas internas e 404; `WebSite` apenas na home.
-- Sitemap e robots derivam das rotas geradas; `lastmod` vem de `atualizadoEm`. O `--check` audita o
+- Sitemap e robots derivam das rotas geradas; cada `<url>` do sitemap exige `<lastmod>` em
+  AAAA-MM-DD, alimentado por `atualizadoEm` (topo dos arquivos e por unidade). O `--check` audita o
   `dist/` existente e o `sitemap.xml` real.
 - Internal linking: unidade ↔ serviço ↔ preparo, rodapé com todas as unidades publicáveis,
   profundidade ≤ 2 cliques a partir da home.
@@ -227,8 +258,11 @@ não esteja na lista de rótulos de interface/revisão permitidos.
 
 ```powershell
 npm run build:rascunho
-node scripts/auditoria.mjs
+$OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
+node scripts/auditoria.mjs | Out-File -Encoding utf8 relatorios/verificacao-rodada4.txt
 ```
+
+Definir o console como UTF-8 antes do redirecionamento evita mojibake nos acentos do JSON.
 
 O script sobe `dist-rascunho` em `127.0.0.1`, abre Chrome/Edge headless via CDP e mede overflow
 horizontal em 320/360/768/1024/1280/1440 px nas páginas home, unidade, serviço, preparo, contato e
@@ -237,8 +271,9 @@ instala nada e não entra no runtime do site.
 
 **Ferramentas ausentes:** `axe-core` e `lighthouse` não estão instalados no projeto e não foram
 adicionados. A auditoria de acessibilidade é manual/scriptada (não axe) e a medição de performance é
-via CDP/Performance API (não score Lighthouse). Os números ficam em
-`relatorios/verificacao-rodada4.txt`.
+via CDP/Performance API (não score Lighthouse). O script imprime o JSON no stdout; a revisão da
+rodada 4 foi arquivada por redirecionamento em `relatorios/verificacao-rodada4.txt` (diretório
+ignorado no git).
 
 ## Privacidade
 
@@ -341,8 +376,9 @@ Cada regra do `--check` e do validador tem um teste que comprova a falha:
   landmarks e `aria-current="page"` no menu e na trilha. Em superfícies escuras (hero e rodapé) o
   outline usa o token `--cor-foco-escuro` (branco), com 7,83:1 contra `#0E5C55`; o par está na
   matriz de contraste do tema.
-- Pendente para a Fase 6: auditoria formal com axe, teste de leitor de tela e revisão responsiva de
-  320 a 1440 px.
+- Fase 6 **parcial**: a auditoria local via CDP (`scripts/auditoria.mjs`) mede overflow e foco, mas a
+  auditoria formal com axe, o teste manual de teclado/leitor de tela, a revisão responsiva manual e o
+  Lighthouse seguem pendentes.
 
 ## Limitações desta rodada
 
@@ -351,8 +387,9 @@ Cada regra do `--check` e do validador tem um teste que comprova a falha:
   Use `npm run build:rascunho` para revisar as **17 páginas** com dados fictícios, incluindo as
   novas rotas de F4.
 - `npm run build:go-live` **falha hoje** e lista os bloqueios reais (unidades, menu, rotas F4,
-  serviço aprovado, blocos pendentes, RT/CRM/especialidade, contato institucional e endereço da
-  matriz). Isso é o comportamento esperado até a clínica fechar C-01..C-15.
+  serviço/preparo, blocos pendentes, RT/especialidade, contato institucional, endereço/telefone da
+  matriz, identidade provisória e privacidade). Isso é o comportamento esperado até a clínica fechar
+  C-01..C-15.
 - T013 (rodapé) está **parcial**: razão social e CNPJ são publicados; RT/CRM, especialidade,
   contato e endereço da matriz dependem de dados ainda não confirmados.
 - F4 implementada como **estrutura**: `/sobre/`, `/convenios-e-particular/` e `/contato/` existem
@@ -362,10 +399,12 @@ Cada regra do `--check` e do validador tem um teste que comprova a falha:
 - Blocos editoriais de `paginas.json` são renderizados na home, em unidades, serviços, preparo e
   nas páginas de F4 (tipos `titulo`, `subtitulo`, `paragrafo`, `lista`, `destaque`, `aviso`,
   `citacao`; texto sempre escapado). Bloco `pendente` é omitido da produção e listado no relatório.
-- JSON-LD cobre `Organization`, `WebSite`, `MedicalClinic`, `MedicalWebPage`, `BreadcrumbList` e
-  `WebPage`; Rich Results Test externo não foi executado.
-- Ferramentas de auditoria externas não foram instaladas: axe e Lighthouse ficam **não
-  verificados**; a evidência é a auditoria manual/CDP em `scripts/auditoria.mjs`.
+- F5 (SEO) está implementada: metadados/OG por tipo, JSON-LD, sitemap/robots com `lastmod`, staging
+  via `--base-url` e internal linking. Rich Results Test e Schema Validator externos não foram
+  executados.
+- F6 está **parcial**: axe e Lighthouse não foram instalados nem executados; a evidência é a
+  auditoria local/CDP em `scripts/auditoria.mjs`, sem teste manual de teclado/leitor de tela nem
+  revisão responsiva manual.
 - Convênios: catálogo vazio (`dados/convenios.json`); a página e a matriz unidade×convênio são
   estruturais e só publicam com blocos aprovados. A ressalva e a data de atualização já aparecem
   na página da unidade e na página de convênios, inclusive quando houver lista.
@@ -375,7 +414,8 @@ Cada regra do `--check` e do validador tem um teste que comprova a falha:
 ## Deploy
 
 - O deploy publica **apenas** a saída de `npm run build` (ou de `npm run build:go-live` quando ele
-  passar). Nunca publique `dist-rascunho/`, que contém faixa de revisão, `noindex` e dados fictícios.
-- `dist/` e `dist-rascunho/` são ignorados no git; `relatorios/` também.
+  passar). Nunca publique `dist-rascunho/`, que contém faixa de revisão, `noindex` e dados fictícios,
+  nem `dist-staging/`, que é saída de pré-visualização com `noindex` e `Disallow: /`.
+- `dist/`, `dist-rascunho/` e `dist-staging/` são ignorados no git; `relatorios/` também.
 - O artefato de produção é conferido pelo `--check`: sem `noindex`, sem faixa "VERSÃO DE REVISÃO",
   sem unidades de teste e sem URL fictícia no `sitemap.xml`.

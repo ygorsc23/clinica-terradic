@@ -1,6 +1,7 @@
 /**
- * Metadados e dados estruturados (basico nesta rodada; o gerador completo de SEO
- * e a Fase 5 / T038-T042). Nunca emitir aggregateRating, review, offer ou preco.
+ * Metadados e dados estruturados (Fase 5): title/description, canonical, OG/Twitter e
+ * JSON-LD Organization/WebSite/MedicalClinic/WebPage/MedicalWebPage/BreadcrumbList.
+ * Nunca emitir aggregateRating, review, offer ou preco.
  */
 
 export function urlAbsoluta(urlBase, rota) {
@@ -82,8 +83,7 @@ export function jsonLdClinica(unidade, servicos, urlBase) {
     name: unidade.nomeExibicao,
     url,
     parentOrganization: { '@id': `${urlBase}/#organizacao` },
-    areaServed: { '@type': 'City', name: unidade.cidade },
-    medicalSpecialty: 'Radiology'
+    areaServed: { '@type': 'City', name: unidade.cidade }
   };
 
   const telefone = (unidade.telefones ?? []).find((item) => item?.e164 && item?.validado !== false);
@@ -104,7 +104,13 @@ export function jsonLdClinica(unidade, servicos, urlBase) {
     };
   }
 
-  if (typeof unidade.geo?.lat === 'number' && typeof unidade.geo?.lng === 'number') {
+  if (
+    typeof unidade.geo?.lat === 'number' &&
+    typeof unidade.geo?.lng === 'number' &&
+    ['exata', 'aproximada'].includes(unidade.geo?.precisao) &&
+    Array.isArray(unidade.validacao?.fontes) &&
+    unidade.validacao.fontes.length > 0
+  ) {
     clinica.geo = {
       '@type': 'GeoCoordinates',
       latitude: unidade.geo.lat,

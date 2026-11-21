@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { readFile } from 'node:fs/promises';
+import { readFile, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import os from 'node:os';
 
 import {
   carregarDados,
@@ -23,7 +24,8 @@ import {
 import { validarGoLive } from './lib/golive.mjs';
 import { gerarRelatorio } from './lib/relatorio.mjs';
 import { renderizarBlocos } from './lib/blocos.mjs';
-import { gerarRobots } from './build.mjs';
+import { diretorioDeSaida, fotografiaDiretorio, gerarRobots, gerarSitemap } from './build.mjs';
+import { serializarJsonLd } from './lib/seo.mjs';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const URL_BASE = 'https://terradic.com.br';
@@ -48,6 +50,10 @@ async function paginasDe(dados, { rascunho = false } = {}) {
 
 function htmlDaPagina(paginas, rota) {
   return paginas.find((pagina) => pagina.rota === rota)?.html ?? '';
+}
+
+function conteudoPrincipal(html) {
+  return html.match(/<main[^>]*>([\s\S]*?)<\/main>/)?.[1] ?? '';
 }
 
 function decodificarHtml(texto) {
@@ -1224,6 +1230,7 @@ test('R4-F5: MedicalClinic completa e geo condicional', async () => {
   assert.ok(clinica.availableService.some((servico) => servico.name === 'Tomografia computadorizada'));
   assert.ok(clinica.parentOrganization);
   assert.ok(clinica.areaServed);
+  assert.ok(!Object.hasOwn(clinica, 'medicalSpecialty'));
   assert.ok(clinica.geo);
 
   const semGeo = dadosComUnidadesAtivas();
@@ -1320,4 +1327,219 @@ test('R4-F6: preparo e mapa funcionam sem JavaScript', async () => {
   const semScripts = preparo.replace(/<script[\s\S]*?<\/script>/g, '');
   assert.ok(semScripts.includes('Preparo de exames'));
   assert.ok(semScripts.includes('<details'));
+});
+
+// ---------- Rodada 4: garantias do QA ----------
+
+test('R4-QA: sitemap exige lastmod por URL', () => {
+  const sitemap = `<?xml version="1.0" encoding="UTF-8"?><urlset>
+  <url><loc>${URL_BASE}/</loc><lastmod>2026-11-20</lastmod></url>
+  <url><loc>${URL_BASE}/unidades/</loc><lastmod>null</lastmod></url>
+</urlset>`;
+  const erros = checarSitemap({
+    arquivos: new Map([
+      ['sitemap.xml', sitemap],
+      ['robots.txt', gerarRobots(URL_BASE)]
+    ]),
+    rotas: ['/', '/unidades/'],
+    urlBase: URL_BASE
+  });
+  const lastmod = erros.filter((erro) => erro.detalhe.includes('lastmod'));
+  assert.equal(lastmod.length, 1);
+  assert.ok(lastmod[0].detalhe.includes(`${URL_BASE}/unidades/`));
+});
+
+test('R4-QA: sitemap reprova url sem loc e sem lastmod', () => {
+  const sitemap = `<?xml version="1.0" encoding="UTF-8"?><urlset>
+  <url><lastmod>2026-11-20</lastmod></url>
+  <url><loc>${URL_BASE}/sobre/</loc></url>
+</urlset>`;
+  const erros = checarSitemap({
+    arquivos: new Map([
+      ['sitemap.xml', sitemap],
+      ['robots.txt', gerarRobots(URL_BASE)]
+    ]),
+    rotas: ['/sobre/'],
+    urlBase: URL_BASE
+  });
+  assert.ok(erros.some((erro) => erro.detalhe.includes('<loc> ausente')));
+  assert.ok(
+    erros.some(
+      (erro) =>
+        erro.detalhe.includes(`${URL_BASE}/sobre/`) && erro.detalhe.includes('lastmod')
+    )
+  );
+});
+
+test('R4-QA: gerarSitemap inclui loc e lastmod por rota e omite 404', () => {
+  const sitemap = gerarSitemap(
+    [
+      { rota: '/', lastmod: '2026-11-20' },
+      { rota: '/unidades/', lastmod: '2026-11-21' },
+      { rota: '/404.html', lastmod: '2026-11-20' }
+    ],
+    URL_BASE
+  );
+  assert.equal((sitemap.match(/<url>/g) ?? []).length, 2);
+  assert.ok(sitemap.includes(`<loc>${URL_BASE}/</loc>`));
+  assert.ok(sitemap.includes(`<loc>${URL_BASE}/unidades/</loc>`));
+  assert.ok(sitemap.includes('<lastmod>2026-11-21</lastmod>'));
+  assert.ok(!sitemap.includes('/404.html'));
+});
+
+test('R4-QA: validador exige atualizadoEm no topo dos arquivos usados', () => {
+  const casos = [
+    ['paginas', 'paginas.json', 'topo'],
+    ['servicos', 'servicos.json', 'topo'],
+    ['preparos', 'preparos.json', 'topo'],
+    ['unidades', 'unidades.json', 'topo']
+  ];
+  for (const [chave, arquivo, entidade] of casos) {
+    const dados = structuredClone(dadosBase);
+    delete dados[chave].atualizadoEm;
+    assert.ok(temCodigo(validar(dados), `${arquivo}:atualizadoEm:${entidade}`), arquivo);
+  }
+});
+
+test('R4-QA: convenios.atualizadoEm so e exigido quando ha convenio', () => {
+  const vazio = structuredClone(dadosBase);
+  vazio.convenios = { versao: 1, convenios: [] };
+  assert.ok(!temCodigo(validar(vazio), 'convenios.json:atualizadoEm:convenios'));
+
+  const comItem = structuredClone(dadosBase);
+  comItem.convenios = {
+    versao: 1,
+    convenios: [{ id: 'unimed', nome: 'Unimed', exibirLogo: false, logoAutorizado: false }]
+  };
+  assert.ok(temCodigo(validar(comItem), 'convenios.json:atualizadoEm:convenios'));
+});
+
+test('R4-QA: geo exige precisao e fontes para entrar no JSON-LD', async () => {
+  const dados = dadosComMatrizCompleta();
+  const unidade = dados.unidades.unidades[0];
+  unidade.geo = { lat: -3.7319, lng: -38.5267 };
+  assert.ok(temCodigo(validar(dados), 'unidades.json:geo.precisao:teste-centro'));
+  const semPrecisao = await paginasDe(dados);
+  const clinicaSemPrecisao = jsonLdDaPagina(
+    htmlDaPagina(semPrecisao, '/unidades/teste-centro/')
+  )['@graph'].find((no) => no['@type'] === 'MedicalClinic');
+  assert.equal(clinicaSemPrecisao.geo, undefined);
+
+  unidade.geo.precisao = 'aproximada';
+  const fontes = unidade.validacao.fontes;
+  unidade.validacao.fontes = [];
+  const semFonte = await paginasDe(dados, { rascunho: true });
+  const clinicaSemFonte = jsonLdDaPagina(
+    htmlDaPagina(semFonte, '/unidades/teste-centro/')
+  )['@graph'].find((no) => no['@type'] === 'MedicalClinic');
+  assert.equal(clinicaSemFonte.geo, undefined);
+
+  unidade.validacao.fontes = fontes;
+  const comGeo = await paginasDe(dados);
+  const clinicaComGeo = jsonLdDaPagina(
+    htmlDaPagina(comGeo, '/unidades/teste-centro/')
+  )['@graph'].find((no) => no['@type'] === 'MedicalClinic');
+  assert.deepEqual(clinicaComGeo.geo, {
+    '@type': 'GeoCoordinates',
+    latitude: -3.7319,
+    longitude: -38.5267
+  });
+});
+
+test('R4-QA: diretorio de saida separa producao, rascunho e staging', () => {
+  const staging = 'https://staging.terradic.com.br';
+  assert.equal(diretorioDeSaida(), 'dist');
+  assert.equal(diretorioDeSaida({ urlBase: URL_BASE }), 'dist');
+  assert.equal(diretorioDeSaida({ urlBase: staging }), 'dist-staging');
+  assert.equal(diretorioDeSaida({ rascunho: true, urlBase: staging }), 'dist-rascunho');
+});
+
+test('R4-QA: fingerprint detecta mudanca em arquivo binario', async () => {
+  const diretorio = await mkdtemp(path.join(os.tmpdir(), 'terradic-fingerprint-'));
+  try {
+    await writeFile(path.join(diretorio, 'og.png'), Buffer.from([0, 1, 2, 3]));
+    const antes = await fotografiaDiretorio(diretorio);
+    await writeFile(path.join(diretorio, 'og.png'), Buffer.from([0, 1, 2, 4]));
+    const depois = await fotografiaDiretorio(diretorio);
+    assert.notEqual(antes, depois);
+  } finally {
+    await rm(diretorio, { recursive: true, force: true });
+  }
+});
+
+test('R4-QA: JSON-LD interno tem isPartOf e nao usa SearchAction', async () => {
+  const paginas = await paginasDe(dadosComMatrizCompleta());
+  for (const pagina of paginas) {
+    const grafo = jsonLdDaPagina(pagina.html);
+    assert.ok(grafo, pagina.rota);
+    assert.ok(!JSON.stringify(grafo).includes('SearchAction'), pagina.rota);
+    const tipos = grafo['@graph'].map((no) => no['@type']);
+    if (pagina.rota === '/') {
+      assert.ok(tipos.includes('WebSite'), 'home: WebSite');
+      continue;
+    }
+    assert.ok(!tipos.includes('WebSite'), `${pagina.rota}: WebSite fora da home`);
+    const nosPagina = grafo['@graph'].filter(
+      (no) => no['@type'] === 'WebPage' || no['@type'] === 'MedicalWebPage'
+    );
+    assert.ok(nosPagina.length > 0, `${pagina.rota}: WebPage/MedicalWebPage`);
+    for (const no of nosPagina) {
+      assert.deepEqual(no.isPartOf, { '@id': `${URL_BASE}/#site` }, `${pagina.rota}: isPartOf`);
+    }
+  }
+});
+
+test('R4-QA: serializarJsonLd escapa fechamento de script', () => {
+  const json = serializarJsonLd([{ texto: '</script>' }]);
+  assert.ok(json.includes('\\u003c/script>'));
+  assert.ok(!json.includes('</script>'));
+});
+
+test('R4-QA: conteudo liga servico, unidade e preparo', async () => {
+  const paginas = await paginasDe(dadosComMatrizCompleta());
+  const servico = conteudoPrincipal(htmlDaPagina(paginas, '/servicos/tomografia/'));
+  assert.ok(servico.includes('href="/unidades/teste-centro/"'));
+  assert.ok(servico.includes('href="/preparo-de-exames/#tomografia-sem-contraste"'));
+  const unidade = conteudoPrincipal(htmlDaPagina(paginas, '/unidades/teste-centro/'));
+  assert.ok(unidade.includes('href="/servicos/tomografia/"'));
+  const preparo = conteudoPrincipal(htmlDaPagina(paginas, '/preparo-de-exames/'));
+  assert.ok(preparo.includes('href="/servicos/tomografia/"'));
+});
+
+test('R4-QA: og:image de cada rota existe em src/estatico/assets', async () => {
+  const paginas = await paginasDe(dadosComUnidadesAtivas(), { rascunho: true });
+  for (const pagina of paginas) {
+    const imagem = pagina.html.match(/<meta property="og:image" content="([^"]+)">/)?.[1];
+    assert.ok(imagem, pagina.rota);
+    assert.ok(imagem.startsWith(`${URL_BASE}/assets/`), pagina.rota);
+    const nome = imagem.slice(`${URL_BASE}/assets/`.length);
+    await readFile(path.join(RAIZ, 'src', 'estatico', 'assets', nome));
+  }
+});
+
+test('R4-QA: staging tem noindex e producao tem index nas paginas publicaveis', async () => {
+  const dados = dadosComMatrizCompleta();
+  const stagingUrl = 'https://staging.terradic.com.br';
+  const staging = await gerarPaginas({
+    dados,
+    publicacao: resolverPublicacao(dados, { rascunho: false }),
+    templates,
+    urlBase: stagingUrl,
+    rascunho: false
+  });
+  for (const pagina of staging) {
+    assert.ok(
+      pagina.html.includes('<meta name="robots" content="noindex, follow">'),
+      `${pagina.rota}: staging`
+    );
+  }
+
+  const producao = await paginasDe(dados);
+  for (const pagina of producao) {
+    const esperado = pagina.rota === '/404.html' ? 'noindex, follow' : 'index, follow';
+    assert.ok(
+      pagina.html.includes(`<meta name="robots" content="${esperado}">`),
+      `${pagina.rota}: ${esperado}`
+    );
+  }
 });

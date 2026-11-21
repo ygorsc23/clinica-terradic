@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import os from 'node:os';
@@ -48,7 +49,17 @@ function caminhoDaRota(dist, rota) {
   return path.join(dist, ...caminhoRelativoDaRota(rota).split('/'));
 }
 
-function gerarSitemap(paginas, urlBase) {
+export function diretorioDeSaida({ rascunho = false, urlBase = URL_BASE_PERMITIDA } = {}) {
+  if (rascunho) {
+    return 'dist-rascunho';
+  }
+  if (urlBase !== URL_BASE_PERMITIDA) {
+    return 'dist-staging';
+  }
+  return 'dist';
+}
+
+export function gerarSitemap(paginas, urlBase) {
   const urls = paginas
     .filter((pagina) => pagina.rota !== '/404.html')
     .sort((a, b) => (a.rota < b.rota ? -1 : a.rota > b.rota ? 1 : 0))
@@ -160,12 +171,28 @@ function assinatura(paginas) {
   return paginas.map((pagina) => `${pagina.rota}\u0000${pagina.html}`).join('\u0001');
 }
 
-async function fotografiaDiretorio(diretorio) {
+export async function fotografiaDiretorio(diretorio) {
   if (!existsSync(diretorio)) {
     return null;
   }
-  const mapa = await lerMapaDaSaida(diretorio);
-  return JSON.stringify([...mapa.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+  const arquivos = [];
+
+  async function percorrer(origem, prefixo = '') {
+    const entradas = await readdir(origem, { withFileTypes: true });
+    for (const entrada of entradas) {
+      const caminho = path.join(origem, entrada.name);
+      const chave = prefixo ? `${prefixo}/${entrada.name}` : entrada.name;
+      if (entrada.isDirectory()) {
+        await percorrer(caminho, chave);
+      } else {
+        const hash = createHash('sha256').update(await readFile(caminho)).digest('hex');
+        arquivos.push([chave, hash]);
+      }
+    }
+  }
+
+  await percorrer(diretorio);
+  return JSON.stringify(arquivos.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
 }
 
 async function carregarSlugsTeste(raiz) {
@@ -274,9 +301,9 @@ export async function executarBuild({
   const paginas = gerarPaginas({ dados, publicacao, templates, urlBase, rascunho });
 
   const distProducao = path.join(raiz, 'dist');
-  const saida = rascunho ? path.join(raiz, 'dist-rascunho') : distProducao;
-  const distAntes =
-    check && rascunho ? await fotografiaDiretorio(distProducao) : null;
+  const saida = path.join(raiz, diretorioDeSaida({ rascunho, urlBase }));
+  const auditarDist = check && saida !== distProducao;
+  const distAntes = auditarDist ? await fotografiaDiretorio(distProducao) : null;
 
   await escreverSaida({ raiz, destino: saida, paginas, urlBase });
   await escreverRelatorio(raiz, dadosRelatorio, publicacaoRelatorio);
@@ -373,9 +400,9 @@ export async function executarBuild({
     errosCheck.push(
       ...executarChecagens({
         arquivos: mapaDist,
-        urlBase,
+        urlBase: URL_BASE_PERMITIDA,
         producao: true,
-        staging,
+        staging: false,
         slugsTeste,
         napEsperado: criarNapEsperado(dadosRelatorio, publicacaoRelatorio)
       })
@@ -387,8 +414,8 @@ export async function executarBuild({
       ...checarSitemap({
         arquivos: mapaDist,
         rotas: rotasDist,
-        urlBase,
-        staging
+        urlBase: URL_BASE_PERMITIDA,
+        staging: false
       })
     );
   }

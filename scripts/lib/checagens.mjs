@@ -772,8 +772,22 @@ export function checarSitemap({ arquivos, rotas, urlBase, staging = false }) {
       `URLs divergentes. Esperadas: ${esperadas.join(', ')}. Encontradas: ${obtidas.join(', ')}`
     );
   }
-  if (!/<lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/.test(sitemap)) {
-    adicionar(erros, 'sitemap', 'sitemap.xml', 'lastmod ausente ou fora do formato AAAA-MM-DD');
+
+  for (const [indice, bloco] of [...sitemap.matchAll(/<url>([\s\S]*?)<\/url>/g)].entries()) {
+    const loc = bloco[1].match(/<loc>([^<]*)<\/loc>/)?.[1]?.trim();
+    const lastmod = bloco[1].match(/<lastmod>([^<]*)<\/lastmod>/)?.[1]?.trim();
+    const referencia = loc || `bloco <url> na posicao ${indice + 1}`;
+    if (!loc) {
+      adicionar(erros, 'sitemap', 'sitemap.xml', `${referencia}: <loc> ausente`);
+    }
+    if (!lastmod || !/^\d{4}-\d{2}-\d{2}$/.test(lastmod)) {
+      adicionar(
+        erros,
+        'sitemap',
+        'sitemap.xml',
+        `${referencia}: lastmod ausente ou fora do formato AAAA-MM-DD`
+      );
+    }
   }
 
   const robots = arquivos.get('robots.txt');

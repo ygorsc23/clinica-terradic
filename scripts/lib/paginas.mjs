@@ -728,6 +728,11 @@ function paginaUnidade(ctx, unidade) {
     robots: robotsTxt(ctx),
     jsonLd: [
       jsonLdOrganizacao(site, ctx.urlBase),
+      jsonLdPagina({
+        urlBase: ctx.urlBase,
+        rota: `/unidades/${unidade.slug}/`,
+        nome: tituloUnidade(unidade)
+      }),
       jsonLdClinica(unidade, servicosDaUnidade, ctx.urlBase),
       jsonLdBreadcrumb(itensTrilha, ctx.urlBase)
     ]
@@ -1271,6 +1276,7 @@ function pagina404(ctx) {
     robots: robotsTxt(ctx, { noindex: true }),
     jsonLd: [
       jsonLdOrganizacao(ctx.dados.site, ctx.urlBase),
+      jsonLdPagina({ urlBase: ctx.urlBase, rota: '/404.html', nome: dadosPagina.seo.titulo }),
       jsonLdBreadcrumb(itensTrilha, ctx.urlBase)
     ]
   };

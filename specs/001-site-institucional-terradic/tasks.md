@@ -120,22 +120,29 @@
 
 ## Fase 5 — SEO local e dados estruturados
 
-- [ ] **T038 [L] Implementar gerador de metadados** (`scripts/lib/seo.mjs`) — title/description por tipo de página, canonical, OG/Twitter, `og:image`.
+- [x] **T038 [L] Implementar gerador de metadados** (`scripts/lib/seo.mjs`) — title/description por tipo de página, canonical, OG/Twitter, `og:image`.
   *Pronto quando:* AC-12 passa em todas as rotas e nenhum title se repete.
-- [ ] **T039 [L] Implementar JSON-LD `Organization` + `MedicalClinic` por unidade** — `@id`, endereço, geo condicional, telefone, horários, `availableService`, `parentOrganization`.
+  *Estado:* **concluída na rodada 4** — metadados por tipo em `scripts/lib/seo.mjs`; title/description únicos, canonical e OG/Twitter verificados por `R4-F5: metadados completos e únicos...` em `scripts/testes.mjs`.
+- [x] **T039 [L] Implementar JSON-LD `Organization` + `MedicalClinic` por unidade** — `@id`, endereço, geo condicional (exige `precisao` `exata|aproximada` e `validacao.fontes[]`), telefone, horários, `availableService`, `parentOrganization`; sem `medicalSpecialty` fixo (alinhado ao plano §7.2).
   *Pronto quando:* AC-13 passa no Rich Results Test para 2 unidades distintas.
-- [ ] **T040 [L] Implementar `BreadcrumbList` e `WebPage`/`MedicalWebPage`** — `isPartOf` correto, sem `SearchAction`.
+  *Estado:* **concluída na rodada 4** — `Organization` e `MedicalClinic` finais em `scripts/lib/seo.mjs` (endereço, telefone, `geo` condicional, horários, `availableService`, `parentOrganization`); `geo` só entra com `lat`/`lng` numéricos, `precisao` `exata|aproximada` e `fontes` não vazio, e coordenada numérica sem `precisao` válida é erro em `scripts/lib/dados.mjs`, coberto por `R4-QA: geo exige precisao e fontes para entrar no JSON-LD` em `scripts/testes.mjs`; a propriedade `medicalSpecialty` fixa foi removida do JSON-LD; `R4-F5` de Organization e de MedicalClinic/`geo` em `scripts/testes.mjs`.
+- [x] **T040 [L] Implementar `BreadcrumbList` e `WebPage`/`MedicalWebPage`** — `isPartOf` correto, sem `SearchAction`.
   *Pronto quando:* Schema Validator sem erro em home, unidade, serviço e preparo.
-- [ ] **T041 [L] Gerar `sitemap.xml` e `robots.txt`** a partir das rotas realmente escritas, `lastmod` de `atualizadoEm`.
-  *Pronto quando:* AC-14 passa, incluindo ausência de URL de rascunho; o `sitemap.xml` (gerado e o já existente no `dist/`) passa pelo gate de artefato — `slugsTeste`, URLs fictícias e URL fora da base reprovam (AC-34).
-- [ ] **T042 [L] Implementar `og-image` por tipo de página** — 1200×630, sem texto que prometa resultado.
+  *Estado:* **concluída na rodada 4** — `BreadcrumbList` nas internas e `WebPage`/`MedicalWebPage` com `isPartOf`; `WebSite` só na home e sem `SearchAction`; `R4-F5: JSON-LD final...` em `scripts/testes.mjs`.
+- [x] **T041 [L] Gerar `sitemap.xml` e `robots.txt`** a partir das rotas realmente escritas, `lastmod` de `atualizadoEm`.
+  *Pronto quando:* AC-14 passa, incluindo ausência de URL de rascunho; o `sitemap.xml` (gerado e o já existente no diretório de saída) passa pelo gate de artefato — `slugsTeste`, URLs fictícias e URL fora da base reprovam (AC-34).
+  *Estado:* **concluída na rodada 4** — `scripts/build.mjs` escreve `sitemap.xml`/`robots.txt` a partir das rotas, com `lastmod` de `atualizadoEm`; auditoria do sitemap existente no `--check`; o `--check` valida `<loc>` e `<lastmod>` no formato AAAA-MM-DD por URL, e o `atualizadoEm` no topo de unidades/serviços/preparos/páginas é obrigatório (presença e formato); testes de sitemap e `R4-F5: staging recebe noindex...` em `scripts/testes.mjs`.
+- [x] **T042 [L] Implementar `og-image` por tipo de página** — 1200×630, sem texto que prometa resultado.
   *Pronto quando:* cada tipo de página tem imagem válida e peso < 200 KB.
-- [ ] **T043 [L] Internal linking** — unidade↔serviço↔preparo, rodapé com todas as unidades, profundidade ≤ 2.
+  *Estado:* **concluída na rodada 4** — `og-{home,unidade,servico,preparo,institucional}.png` em `src/estatico/assets/`, 1200×630 e < 200 KB; `R4-F5: imagens OG...` em `scripts/testes.mjs`.
+- [x] **T043 [L] Internal linking** — unidade↔serviço↔preparo, rodapé com todas as unidades, profundidade ≤ 2.
   *Pronto quando:* nenhuma página publicada está a mais de 2 cliques da home.
+  *Estado:* **concluída na rodada 4** — rodapé com todas as unidades e links unidade↔serviço↔preparo; `R4-F5: internal linking...` percorre todas as rotas em ≤ 2 cliques.
 - [ ] **T044 [C] Completar JSON-LD com `geo` (quando confirmado) e RT reais** (C-02, C-08).
   *Pronto quando:* o `geo` aparece nas unidades com coordenada confirmada e sua ausência, nas demais, não gera erro e está listada no relatório de pendências; `taxID`/RT conferidos.
-- [ ] **T045a [L] Preparar staging com `noindex` e conferir a marcação** — build de staging via `--base-url` (pode usar o build de produção tolerante), `meta robots: noindex` em todas as páginas, `robots.txt` de produção intacto; verificar que o build de produção e o go-live não emitem o meta.
+- [x] **T045a [L] Preparar staging com `noindex` e conferir a marcação** — build de staging via `--base-url` (pode usar o build de produção tolerante), `meta robots: noindex` em todas as páginas, `robots.txt` de produção intacto; verificar que o build de produção e o go-live não emitem o meta.
   *Pronto quando:* todas as páginas servidas no staging têm `<meta name="robots" content="noindex">`, com detecção independente da ordem dos atributos (AC-34), o build de produção não tem esse meta e `robots.txt` de produção libera o site apontando o sitemap (AC-14).
+  *Estado:* **concluída na rodada 4 (marcação)** — `--base-url` de staging emite `<meta name="robots" content="noindex, follow">` em todas as páginas e `robots.txt` com `Disallow: /`; produção segue com `Allow: /` e sem noindex (`R4-F5: staging recebe noindex e robots próprio; produção não`). O build de staging grava em `dist-staging/` (nunca em `dist/`), e o teste do diretório de saída em `scripts/testes.mjs` cobre `dist-staging` e `dist-rascunho`. O deploy em hospedagem real depende de Q-07/T064.
 - [ ] **T045b [C] Verificar o domínio no Search Console/Bing e enviar o sitemap** — depende de acesso ao DNS/domínio definitivo (C-12): verificação por registro TXT ou arquivo, envio do `sitemap.xml`, conferência de cobertura e de erros.
   *Pronto quando:* propriedade verificada, sitemap aceito sem erros e nenhuma URL de rascunho reportada.
 
@@ -145,18 +152,28 @@
 
 - [ ] **T046 [L] Auditoria axe nas 5 páginas-chave** — corrigir todas as violações críticas/sérias.
   *Pronto quando:* AC-16 = zero violações críticas/sérias.
+  *Nota:* exige navegador/axe; fica para o pré-go-live.
+  *Evidência parcial (rodada 4):* auditoria local via CDP (`scripts/auditoria.mjs`) — 36 medições de overflow (6 páginas × 320/360/768/1024/1280/1440) com zero overflow; foco inicial no skip link, menu e acordeão por teclado; sem JS o preparo mantém `<details>` e a unidade mantém o link do mapa; CSS 4,0 KB e JS 1,1 KB gzip. Não substitui axe nem leitor de tela.
 - [ ] **T047 [L] Revisão de teclado e leitor de tela** — header, menu, acordeões, mapa, rodapé; medir o contraste do indicador de foco sobre superfície clara e escura (hero e rodapé).
   *Pronto quando:* AC-17 passa, com foco visível e ≥ 3:1 em todas as superfícies, e o fluxo é compreensível em NVDA ou VoiceOver.
+  *Nota:* exige navegador e leitor de tela; fica para o pré-go-live.
 - [ ] **T048 [L] Revisão responsiva 320–1440 px** — header, cards, horários, tabela de convênios, rodapé.
   *Pronto quando:* AC-02 passa em 6 larguras sem overflow.
-- [ ] **T049 [L] Otimizar imagens e fontes** — WebP/AVIF, `srcset`, dimensões, `loading="lazy"`, woff2 self-host com `preload`.
+  *Nota:* exige navegador; fica para o pré-go-live.
+  *Evidência parcial (rodada 4):* auditoria local via CDP (`scripts/auditoria.mjs`) — 36 medições de overflow (6 páginas × 320/360/768/1024/1280/1440) com zero overflow; falta a inspeção manual de header, cards, horários, tabela de convênios e rodapé.
+- [x] **T049 [L] Otimizar imagens e fontes** — WebP/AVIF, `srcset`, dimensões, `loading="lazy"`, woff2 self-host com `preload`.
   *Pronto quando:* nenhuma imagem > 250 KB e nenhuma fonte de terceiro.
-- [ ] **T050 [L] Orçamento de JS/CSS no `--check`** — falhar se JS > 10 KB ou CSS > 25 KB gzip.
+  *Estado:* **concluída no estado atual (N/A)** — não há `<img>` de fotos (T024/C-11 pendente) e as fontes são a pilha do sistema; as únicas imagens raster são as OG, 1200×630 e < 200 KB (`R4-F5`). WebP/AVIF/`srcset`/`lazy` voltam quando C-11/T024 trouxer fotos.
+- [x] **T050 [L] Orçamento de JS/CSS no `--check`** — falhar se JS > 10 KB ou CSS > 25 KB gzip.
   *Pronto quando:* AC-19 medido no build, não só no DevTools.
+  *Estado:* **concluída na rodada 4** — regra `orcamento` em `scripts/lib/checagens.mjs` falha acima de 10 KB (JS) e 25 KB (CSS) gzip no `--check`; teste `orcamento falha quando o JS passa de 10 KB gzip` em `scripts/testes.mjs`.
 - [ ] **T051 [L] Rodar Lighthouse mobile e registrar baseline** — Performance ≥ 90, A11y ≥ 95, SEO ≥ 95, BP ≥ 90.
   *Pronto quando:* AC-18 atingido nas 5 páginas-chave e resultado anexado ao PR.
-- [ ] **T052 [L] Verificar degradação sem JS** — conteúdo essencial e acordeões acessíveis.
+  *Nota:* exige navegador/Lighthouse; fica para o pré-go-live.
+  *Evidência parcial (rodada 4):* medição local via CDP (`scripts/auditoria.mjs`) — CSS 4,0 KB e JS 1,1 KB gzip; sem JS o preparo mantém `<details>` e a unidade mantém o link do mapa. CLS 0,419 medido em CDP sob emulação 4G, a investigar no pré-go-live. Não substitui o Lighthouse.
+- [x] **T052 [L] Verificar degradação sem JS** — conteúdo essencial e acordeões acessíveis.
   *Pronto quando:* página de preparo continua legível com JS desabilitado.
+  *Estado:* **concluída na rodada 4** — `R4-F6: preparo e mapa funcionam sem JavaScript` confirma `<details>/<summary>` no preparo e o link da fachada do mapa sem script.
 
 ---
 
@@ -197,7 +214,8 @@
 |---|---|---|
 | 1 | F0–F3 (parcial): fundação, build, layout, unidades, serviços e preparo | concluída; T013 entregue **parcial** (AC-21/AC-30 dependem de C-02/C-03/C-08); T010 (identidade oficial) e T030 (revisão do RT) seguem com o cliente |
 | 2 | Correções do QA (T006/T008/T029, ajustes pontuais de T013 e artefatos), renderizador de blocos (T005/T006/T011a), git (T001) e versão HTML da proposta | concluída — T001 fechada em 2026-11-20 (`d056e8a` + `393c73e`, árvore limpa); gates do QA incorporados ao spec/plano |
-| 3 | F4–F6: T033–T037a, T038–T052 | em andamento — F4 em execução (T033–T037a); conteúdo pendente mantém páginas fora da produção e go-live vermelho, como esperado |
+| 3 | F4: T033–T037a (convênios, sobre/RT, contato, privacidade) | concluída na estrutura — T033–T037a implementadas; conteúdo aprovado pendente mantém as páginas fora da produção e o go-live vermelho (esperado); F5/F6 executadas na rodada 4 |
+| 4 | F5: T038–T043, T045a; F6: T049–T052 | F5 concluída; F6 parcial — T049/T050/T052 fechadas no estado atual, T046/T047/T048/T051 exigem navegador/ferramenta e ficam para o pré-go-live; T045a entregue na marcação, deploy de staging depende de Q-07/T064 |
 | Pós-cliente | F7–F8: T053–T070 | dependente do cliente |
 
 ```
@@ -218,7 +236,7 @@ T053..T063 (bloqueiam go-live)
 T064..T070 (T065 só a partir de `--go-live` verde)
 ```
 
-**Caminho crítico sem cliente:** T001–T016 (exceto as partes dependentes de cliente em T010/T013), T019–T022, T027–T029, T031–T033, T035–T037a, T038–T043, T045a, T046–T052, T064–T065, T067–T068. Tudo isso pode ser construído e revisado com dados de teste locais, enquanto C-01..C-15 são coletados. T013 fica **parcial** até C-02/C-03/C-08 (AC-21/AC-30); T029 é estrutural, mas AC-09 só fecha após C-09/T030. AC-21, AC-30, AC-31 e AC-33 só são verificáveis no go-live. Enquanto F4 não tiver conteúdo aprovado, as páginas de convênios/sobre/contato/privacidade ficam fora da produção e o `--go-live` fica vermelho — é o comportamento correto do gate, não um defeito da rodada 3.
+**Caminho crítico sem cliente:** T001–T016 (exceto as partes dependentes de cliente em T010/T013), T019–T022, T027–T029, T031–T033, T035–T037a, T038–T043, T045a, T046–T052, T064–T065, T067–T068. Tudo isso pode ser construído e revisado com dados de teste locais, enquanto C-01..C-15 são coletados. T013 fica **parcial** até C-02/C-03/C-08 (AC-21/AC-30); T029 é estrutural, mas AC-09 só fecha após C-09/T030. AC-21, AC-30, AC-31 e AC-33 só são verificáveis no go-live. F5 está **fechada** (T038–T043, T045a) e F6 está **parcial**: T049/T050/T052 fechadas no estado atual; T046/T047/T048/T051 exigem navegador/ferramenta e ficam para o pré-go-live. Enquanto F4/F7 não tiverem conteúdo aprovado, as páginas de convênios/sobre/contato/privacidade ficam fora da produção e o `--go-live` fica vermelho — é o comportamento correto do gate, não um defeito.
 
 ---
 

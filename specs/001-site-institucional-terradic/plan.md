@@ -328,7 +328,7 @@ Tipos de bloco permitidos: `titulo`, `subtitulo`, `paragrafo`, `lista`, `destaqu
 | `/politica-de-privacidade/` | condicional (`site.privacidade.politicaPublicada`) | `privacidade.html` |
 | `/404.html` | fixo | `404.html` |
 
-Saída: `dist/<rota>/index.html` (diretório, trailing slash), `dist/404.html`, `dist/sitemap.xml`, `dist/robots.txt`, `dist/assets/estilo.css`, `dist/assets/app.js`, estáticos copiados.
+Saída: o diretório depende do modo — produção grava em `dist/`, staging (`--base-url` diferente de `https://terradic.com.br`, sem `--rascunho`) grava em `dist-staging/` e `--rascunho` grava em `dist-rascunho/`. Dentro do diretório efetivo: `<rota>/index.html` (diretório, trailing slash), `404.html`, `sitemap.xml`, `robots.txt`, `assets/estilo.css`, `assets/app.js`, estáticos copiados. Staging e rascunho nunca escrevem em `dist/`.
 
 **Sem paginação e sem índice de preparos por exame** nesta fase: uma página única com âncoras atende e concentra autoridade (decisão revisável se o conteúdo passar de ~15 preparos).
 
@@ -336,7 +336,7 @@ Saída: `dist/<rota>/index.html` (diretório, trailing slash), `dist/404.html`, 
 
 ## 5. Pipeline de build
 
-`npm run build` executa `node scripts/build.mjs` (flags: `--rascunho`, `--go-live`, `--check`, `--base-url=`).
+`npm run build` executa `node scripts/build.mjs` (flags: `--rascunho`, `--go-live`, `--check`, `--base-url=`). O diretório de saída é derivado das flags: `--rascunho` → `dist-rascunho/`; `--base-url` diferente de `https://terradic.com.br` sem `--rascunho` (staging) → `dist-staging/`; produção → `dist/`.
 
 **Modos (AD-12):**
 
@@ -354,16 +354,16 @@ Saída: `dist/<rota>/index.html` (diretório, trailing slash), `dist/404.html`, 
 4. **Calcular derivados:** mapa serviço→unidades, convênio→unidades, próxima unidade que realiza serviço, horários formatados, `sameAs`, breadcrumbs.
 5. **Renderizar parciais** (header, footer, CTA, avisos) e então cada página com injeção de fragmentos e metadados, incluindo os blocos de `paginas.json`.
 6. **Gerar JSON-LD** por página (ver §7) e serializar dentro de `<script type="application/ld+json">` com escape de `</`.
-7. **Compilar CSS** com Tailwind CLI (`-i src/css/estilo.css -o dist/assets/estilo.css --minify`), conteúdo escaneado em `src/templates` + `src/js` + fragmentos gerados.
+7. **Compilar CSS** com Tailwind CLI (`-i src/css/estilo.css -o {saída}/assets/estilo.css --minify`), conteúdo escaneado em `src/templates` + `src/js` + fragmentos gerados.
 8. **Copiar e otimizar estáticos** (imagens já pré-otimizadas no repositório; sem processamento de imagem no build).
 9. **Gerar `sitemap.xml`** a partir do registro de rotas efetivamente escritas (inclui `/politica-de-privacidade/` só se publicada) e `robots.txt` com `Sitemap: {urlBase}/sitemap.xml`.
 10. **Relatório:** `relatorios/pendencias.md` e `.json` com todo campo nulo/pendente, agrupado por unidade/serviço/preparo, + resumo no stdout. Em produção tolerante, pendência de entidade não publicável vai ao relatório sem derrubar o build; em `--go-live`, qualquer bloqueio derruba (AC-15/AC-23/FR-47).
 
 **Determinismo:** nenhum timestamp gerado em runtime; `lastmod` vem de `atualizadoEm`; saída ordenada por `slug`; `.nvmrc` e `package-lock.json` versionados; build não acessa rede. **Exceção declarada:** o ano do rodapé (FR-02) vem do relógio do build; duas execuções consecutivas no mesmo ano produzem o mesmo hash, e a virada de ano altera o hash — esperado e documentado no README e no relatório (AC-24).
 
-**Gate de QA local (`--check`):** além do build, verifica links internos quebrados no `dist/`, presença de `tel:`/`rel` corretos, ausência de `placeholder`/`[CONFIRMAR]`/`lorem`, NAP **equivalente após normalização** (CEP só dígitos; telefone em E.164; comparação do texto visível, não apenas de atributos) entre HTML, JSON-LD e dado canônico. O **rodapé entra na checagem em todas as páginas publicadas**, comparado ao registro da matriz (`matriz: true`) e ao contato institucional — nunca ao da unidade; ausência ou divergência reprova (AC-30). Varredura do CSS compilado por `@import`, `url(http…)` e `@font-face` externo.
+**Gate de QA local (`--check`):** além do build, verifica links internos quebrados no diretório de saída, presença de `tel:`/`rel` corretos, ausência de `placeholder`/`[CONFIRMAR]`/`lorem`, NAP **equivalente após normalização** (CEP só dígitos; telefone em E.164; comparação do texto visível, não apenas de atributos) entre HTML, JSON-LD e dado canônico. O **rodapé entra na checagem em todas as páginas publicadas**, comparado ao registro da matriz (`matriz: true`) e ao contato institucional — nunca ao da unidade; ausência ou divergência reprova (AC-30). Varredura do CSS compilado por `@import`, `url(http…)` e `@font-face` externo.
 
-**Gate de artefato (NFR-12/AC-34)** — opera sobre o `dist/` já escrito, não só sobre estruturas em memória:
+**Gate de artefato (NFR-12/AC-34)** — opera sobre o diretório efetivamente escrito (`dist/`, `dist-staging/` ou `dist-rascunho/`, conforme a execução), não só sobre estruturas em memória. O `--check` também confere que uma execução de staging/rascunho não alterou `dist/`:
 - `slugsTeste` (unidades de teste conhecidas) é procurado em **todos** os HTML **e no `sitemap.xml`**;
 - `noindex` é detectado por presença de `robots` e `noindex` na `<meta>`, **independentemente da ordem dos atributos**;
 - o `sitemap.xml` **existente** é auditado (base permitida, URLs fictícias, slug de teste), além do sitemap gerado na mesma execução;
@@ -414,14 +414,14 @@ Preenchimento dos templates e limite de 60 caracteres:
 Um grafo por página:
 
 - `Organization` (global, `@id: {urlBase}/#organizacao`): nome, `legalName`, `taxID`, `url`, `logo`, `sameAs`.
-- `MedicalClinic` (`@id: {urlBase}/unidades/{slug}/#clinica`): `name`, `url`, `telephone`, `address` (`PostalAddress` com `streetAddress`, `addressLocality`, `addressRegion`, `postalCode`, `addressCountry: BR`), `geo` (só se confirmado), `openingHoursSpecification`, `medicalSpecialty: "Radiology"`, `availableService` (`MedicalTest` com `name`, sempre com ao menos um item — unidade sem serviço aprovado não é publicada), `parentOrganization` → Organization, `areaServed` (`City`), `sameAs` (redes da unidade).
+- `MedicalClinic` (`@id: {urlBase}/unidades/{slug}/#clinica`): `name`, `url`, `telephone`, `address` (`PostalAddress` com `streetAddress`, `addressLocality`, `addressRegion`, `postalCode`, `addressCountry: BR`), `geo` (só se confirmado), `openingHoursSpecification`, `availableService` (`MedicalTest` com `name`, sempre com ao menos um item — unidade sem serviço aprovado não é publicada), `parentOrganization` → Organization, `areaServed` (`City`), `sameAs` (redes da unidade). **Sem `medicalSpecialty` fixo:** não é exigido por AC-13, `Radiology` não pertence à enumeração `MedicalSpecialty` do schema.org e uma especialidade fixa seria incorreta para uma clínica que também faz consultas; as especialidades vêm dos serviços (`availableService`).
 - `MedicalWebPage`/`WebPage` para páginas de serviço e preparo, `isPartOf` → `WebSite`.
 - `BreadcrumbList` em todas as páginas internas.
 - `WebSite` apenas na home (`@id: {urlBase}/#site`), sem `SearchAction` (não há busca).
 
 **Proibido:** `aggregateRating`, `review`, `priceRange`, `Offer`/`price`, `MedicalProcedure` com promessa de resultado, `FAQPage` com perguntas inventadas (só se houver FAQ real e aprovada).
 
-**`geo` opcional (AC-13):** o bloco `geo` do `MedicalClinic` é emitido apenas quando `unidades[].geo.lat`/`lng` existirem e a origem estiver registrada em `validacao.fontes[]`. Sem coordenada confirmada, o JSON-LD sai **sem** `geo` — a ausência não é erro nem bloqueia o go-live, mas a unidade é listada no relatório de pendências. Coordenada nunca é derivada do CEP, do endereço ou do centroide da cidade; `precisao: "aproximada"` exige fonte declarada.
+**`geo` opcional (AC-13):** o bloco `geo` do `MedicalClinic` é emitido apenas quando `unidades[].geo.lat` e `.lng` são numéricos, `geo.precisao` é `exata` ou `aproximada` e `validacao.fontes[]` não está vazio. Coordenada numérica sem `precisao` válida é **erro de validação** do build, não omissão silenciosa. Sem coordenada confirmada, o JSON-LD sai **sem** `geo` — a ausência não é erro nem bloqueia o go-live, mas a unidade é listada no relatório de pendências. Coordenada nunca é derivada do CEP, do endereço ou do centroide da cidade; `precisao: "aproximada"` exige fonte declarada.
 
 ### 7.3 Indexação e operação
 
@@ -450,7 +450,7 @@ Um grafo por página:
 - **Alvo:** hospedagem estática (Netlify, Cloudflare Pages, Vercel, S3+CloudFront ou equivalente nacional). Requisitos: HTTPS gerenciado, diretórios com `index.html`, 404 customizada, headers configuráveis, deploy por CLI/push.
 - **Domínio:** `terradic.com.br` (ou o escolhido em Q-06), apex canônico com redirect 301 de `www`; HSTS após validação; um único host canônico em `urlBase`.
 - **Headers:** `Cache-Control: public, max-age=31536000, immutable` para `/assets/*` com hash no nome; `no-cache` para HTML; `X-Content-Type-Options: nosniff`; `Referrer-Policy: strict-origin-when-cross-origin`; CSP compatível (self + frame do Maps sob clique).
-- **Ambientes:** `staging` (subdomínio, `noindex`, dados em rascunho) e `produção`. Staging pode usar o build de produção tolerante; deploy de produção só a partir de `--go-live` verde (AD-12).
+- **Ambientes:** `staging` (subdomínio, `noindex`, dados em rascunho) e `produção`. Staging (`--base-url` de staging, sem `--rascunho`) grava em `dist-staging/` e `--rascunho` grava em `dist-rascunho/`; `dist/` é exclusivo da produção e nunca é tocado por staging ou rascunho. `dist-staging/` e `dist-rascunho/` nunca são publicados; deploy de produção só a partir de `--go-live` verde (AD-12).
 - **Rollback:** hospedagem mantém deploys anteriores; rollback = promover build anterior.
 - **Monitoramento:** uptime externo simples + alerta de expiração de domínio/certificado. Sem RUM/analytics por padrão.
 - **README:** comandos (`npm ci`, `npm run dev`, `npm run build`), como adicionar unidade/serviço/preparo, como rodar o checklist de publicação, o que fazer ao trocar telefone.
@@ -466,7 +466,7 @@ Um grafo por página:
 | Editorial | `bloco.status`: pendente oculto na produção, presente no relatório e bloqueante no go-live de página publicável; sem texto editorial em template (classificação FR-48/RN-12) | Teste negativo + revisão de template | PR |
 | Gate de artefato | `slugsTeste` em HTML **e** `sitemap.xml`, `noindex` fora de ordem de atributo, auditoria do sitemap existente | Testes negativos no `--check` | PR |
 | Build | Determinismo no mesmo ano, exceção do ano do rodapé, falha em dado ausente e go-live estrito (inclui unidade sem serviço aprovado, RT incompleto, convênio sem `atualizadoEm`) | 2 builds + hash; teste negativo com pendência em `build` e `--go-live` | PR |
-| Links | Links internos e externos, `tel:`, `rel` | `--check` no `dist/` | PR |
+| Links | Links internos e externos, `tel:`, `rel` | `--check` no diretório de saída | PR |
 | SEO | Metadados únicos, canonical, sitemap, JSON-LD | `--check` + Rich Results Test + Schema Validator | PR + antes do go-live |
 | A11y | axe, teclado, leitor de tela | axe DevTools (5 páginas), tabulação completa, NVDA/VoiceOver spot check | Pré-go-live e a cada mudança de layout |
 | Responsivo | 320/360/768/1024/1280/1440 | Inspeção manual + device toolbar | Pré-go-live |
@@ -532,7 +532,8 @@ Backend, CMS, área do paciente, integração com Mobilemed, agendamento, pagame
 |---|---|---|
 | 1 | F0–F3 (parcial): fundação, build, CSS base, layout global, unidades, serviços e preparo | concluída; permanecem parciais T010 (identidade oficial, depende de C-11) e T013 (rodapé sem RT/contato institucional, AC-21 pendente de C-03/C-08); T030 (revisão do RT) segue com o cliente |
 | 2 | Correções do QA (spec/plan/tasks), renderizador de blocos editoriais (home inclusa), git (T001) e versão HTML da proposta | concluída — T001 fechada em 2026-11-20 (commits `d056e8a` e `393c73e`, árvore limpa); os gates do QA da rodada 2 foram incorporados ao spec/plano/tarefas |
-| 3 | F4 (sobre, convênios, contato, política de privacidade) + F5 (SEO completo) + F6 (acessibilidade/performance) | em andamento — F4 em execução; conteúdo pendente mantém páginas fora da produção e o go-live vermelho (esperado, não defeito) |
+| 3 | F4 (sobre, convênios, contato, política de privacidade) | concluída na estrutura — T033–T037a implementadas; conteúdo pendente mantém as páginas fora da produção e o go-live vermelho (esperado, não defeito); F5/F6 executadas na rodada 4 |
+| 4 | F5 (SEO completo) + F6 (acessibilidade/performance) | F5 concluída (T038–T043, T045a); F6 parcial — T049/T050/T052 fechadas no estado atual; T046/T047/T048/T051 exigem navegador/ferramenta e ficam para o pré-go-live; T045a é a marcação de staging, o deploy real depende de Q-07/T064 |
 | Pós-cliente | F7 (conteúdo final e aceite do RT) e F8 (go-live) | dependente do cliente |
 
 **Fases:**
@@ -543,9 +544,9 @@ Backend, CMS, área do paciente, integração com Mobilemed, agendamento, pagame
 | F1 | Layout global (header/footer/CTA), tokens, home estrutural | 1 | Não (visual final depois) |
 | F2 | Unidades: JSON, índice, página por unidade, mapa-fachada | 1 | Parcial (dados reais) |
 | F3 | Serviços + preparo com acordeões | 1 (parcial) | Parcial (textos/RT) |
-| F4 | Convênios, sobre/RT, contato, política de privacidade | 3 (em execução) | Parcial |
-| F5 | SEO técnico completo (JSON-LD, sitemap, OG, metadados) | 3 | Parcial (RT; `geo` é opcional — AC-13) |
-| F6 | A11y, performance, revisão responsiva | 3 | Não |
+| F4 | Convênios, sobre/RT, contato, política de privacidade — estrutura entregue | 3 | Parcial (conteúdo/RT) |
+| F5 | SEO técnico completo (JSON-LD, sitemap, OG, metadados) — entregue; T044 (RT/`geo`) segue com o cliente | 4 | Parcial (RT; `geo` é opcional — AC-13) |
+| F6 | A11y, performance, revisão responsiva — parcial; medições no pré-go-live | 4 (parcial) | Não |
 | F7 | Conteúdo final, checklist CFM, aceite do RT | Pós-cliente | Sim (bloqueante) |
 | F8 | Go-live: domínio, headers, Search Console, smoke test | Pós-cliente | Sim |
 
@@ -558,12 +559,12 @@ Backend, CMS, área do paciente, integração com Mobilemed, agendamento, pagame
 | F2 | 1 (estrutura) / fechamento com o cliente (dados reais) | 2 — Unidades e exames |
 | F3 | 1 (estrutura) / futuro (preparo revisado com o RT) | 2 — Unidades e exames (serviços) e 6 — Conteúdo final |
 | F4 | 3 | 3 — Institucional e convênios |
-| F5 | 3 (Search Console em F8) | 4 — Busca e dados estruturados |
-| F6 | 3 | 5 — Qualidade |
+| F5 | 4 (Search Console em F8) | 4 — Busca e dados estruturados |
+| F6 | 4 (parcial) | 5 — Qualidade |
 | F7 | Futuro (pós-cliente) | 6 — Conteúdo final e aprovação |
 | F8 | Futuro (pós-cliente) | 7 — Publicação |
 
-A rodada 2 não entregou fase nova: corrigiu pendências de QA dos artefatos, concluiu o renderizador de blocos editoriais, versionou o repositório (T001) e produziu a versão HTML da proposta. A rodada 3 executa F4–F6; enquanto o conteúdo da clínica não chegar, as páginas de F4 permanecem fora da produção (ou com blocos pendentes omitidos) e o go-live continua vermelho — comportamento esperado do gate, não regressão.
+A rodada 2 não entregou fase nova: corrigiu pendências de QA dos artefatos, concluiu o renderizador de blocos editoriais, versionou o repositório (T001) e produziu a versão HTML da proposta. A rodada 3 entregou a estrutura de F4 (T033–T037a); enquanto o conteúdo da clínica não chegar, as páginas de F4 permanecem fora da produção (ou com blocos pendentes omitidos). A rodada 4 concluiu F5 (T038–T043, T045a) e avançou F6: orçamento de JS/CSS no `--check` (T050) e degradação sem JS (T052) verificados; T049 está N/A no estado atual, sem fotos até C-11/T024. A auditoria axe, a revisão de teclado/leitor de tela, o responsivo 320–1440 e o Lighthouse seguem pendentes porque exigem navegador/ferramenta e ficam para o pré-go-live. O deploy de staging real depende de Q-07/T064, e o go-live continua vermelho por dependência de conteúdo e aceite (F7) — comportamento esperado do gate, não regressão.
 
 ---
 

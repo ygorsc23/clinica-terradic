@@ -172,6 +172,11 @@ function validarData(erros, arquivo, campo, entidade, valor) {
   }
 }
 
+function validarAtualizadoEm(erros, arquivo, dados, entidade = 'topo') {
+  exigir(erros, arquivo, 'atualizadoEm', entidade, dados?.atualizadoEm);
+  validarData(erros, arquivo, 'atualizadoEm', entidade, dados?.atualizadoEm);
+}
+
 function validarTelefone(erros, arquivo, campo, entidade, valor, exemplosTelefones) {
   if (valor == null) {
     return;
@@ -251,6 +256,11 @@ export function validarDados(dados, { exemplos = null, rascunho = false } = {}) 
     exigir(erros, 'site.json', 'responsavelTecnico.crm', 'site', rt.crm);
     exigir(erros, 'site.json', 'responsavelTecnico.crmUf', 'site', rt.crmUf);
   }
+
+  validarAtualizadoEm(erros, 'unidades.json', dados.unidades);
+  validarAtualizadoEm(erros, 'servicos.json', dados.servicos);
+  validarAtualizadoEm(erros, 'preparos.json', dados.preparos);
+  validarAtualizadoEm(erros, 'paginas.json', dados.paginas);
 
   const convenios = dados.convenios?.convenios;
   const idsConvenios = new Set();
@@ -482,6 +492,19 @@ export function validarDados(dados, { exemplos = null, rascunho = false } = {}) 
       }
       if (lng != null && (typeof lng !== 'number' || lng < -180 || lng > 180)) {
         erro(erros, 'unidades.json', 'geo.lng', entidade, 'longitude fora do intervalo valido');
+      }
+      if (
+        typeof lat === 'number' &&
+        typeof lng === 'number' &&
+        !['exata', 'aproximada'].includes(unidade?.geo?.precisao)
+      ) {
+        erro(
+          erros,
+          'unidades.json',
+          'geo.precisao',
+          entidade,
+          'geo com coordenadas exige precisao "exata" ou "aproximada"'
+        );
       }
 
       const telefones = Array.isArray(unidade?.telefones) ? unidade.telefones : [];
