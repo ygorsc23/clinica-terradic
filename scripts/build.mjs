@@ -60,7 +60,10 @@ function gerarSitemap(paginas, urlBase) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }
 
-function gerarRobots(urlBase) {
+export function gerarRobots(urlBase) {
+  if (urlBase !== URL_BASE_PERMITIDA) {
+    return `User-agent: *\nDisallow: /\n\nSitemap: ${urlBase}/sitemap.xml\n`;
+  }
   return `User-agent: *\nAllow: /\n\nSitemap: ${urlBase}/sitemap.xml\n`;
 }
 
@@ -229,6 +232,7 @@ export async function executarBuild({
   const exemplos = await carregarExemplosBriefing(raiz);
   const errosDados = validarDados(dados, { exemplos, rascunho });
   const urlBase = baseUrl || dados.site.urlBase;
+  const staging = urlBase !== URL_BASE_PERMITIDA;
 
   if (baseUrl && baseUrl !== URL_BASE_PERMITIDA) {
     avisar(`urlBase de preview usada apenas na saída: ${baseUrl}`);
@@ -296,6 +300,7 @@ export async function executarBuild({
       arquivos: mapa,
       urlBase,
       producao: !rascunho,
+      staging,
       slugsTeste,
       napEsperado: criarNapEsperado(dados, publicacao)
     })
@@ -304,7 +309,8 @@ export async function executarBuild({
     ...checarSitemap({
       arquivos: mapa,
       rotas: paginas.map((pagina) => pagina.rota),
-      urlBase
+      urlBase,
+      staging
     })
   );
 
@@ -367,8 +373,9 @@ export async function executarBuild({
     errosCheck.push(
       ...executarChecagens({
         arquivos: mapaDist,
-        urlBase: URL_BASE_PERMITIDA,
+        urlBase,
         producao: true,
+        staging,
         slugsTeste,
         napEsperado: criarNapEsperado(dadosRelatorio, publicacaoRelatorio)
       })
@@ -380,7 +387,8 @@ export async function executarBuild({
       ...checarSitemap({
         arquivos: mapaDist,
         rotas: rotasDist,
-        urlBase: URL_BASE_PERMITIDA
+        urlBase,
+        staging
       })
     );
   }

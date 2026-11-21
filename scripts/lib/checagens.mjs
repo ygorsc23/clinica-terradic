@@ -204,7 +204,7 @@ function conteudoDe(arquivos, arquivo) {
 }
 
 export const REGRAS = {
-  'html.basico': ({ arquivos, urlBase, producao }) => {
+  'html.basico': ({ arquivos, urlBase, producao, staging = false }) => {
     const erros = [];
     for (const [arquivo, conteudo] of htmls(arquivos)) {
       const rota = rotaDoArquivo(arquivo);
@@ -262,12 +262,21 @@ export const REGRAS = {
           adicionar(erros, 'html.basico', arquivo, `falta meta ${propriedade}`);
         }
       }
+      const ogImagem = decodificar(
+        conteudo.match(/property="og:image" content="([^"]*)"/)?.[1] ?? ''
+      );
+      if (ogImagem && !/\/assets\/og-(home|unidade|servico|preparo|institucional)\.png$/.test(ogImagem)) {
+        adicionar(erros, 'html.basico', arquivo, `og:image fora dos tipos esperados: ${ogImagem}`);
+      }
 
       const robots = metaRobots(conteudo);
       const temNoindex = robots.some((valor) => valor.toLowerCase().includes('noindex'));
       if (producao) {
-        if (rota !== '/404.html' && temNoindex) {
+        if (!staging && rota !== '/404.html' && temNoindex) {
           adicionar(erros, 'html.basico', arquivo, 'build de producao nao pode ter noindex em pagina publicavel');
+        }
+        if (staging && !temNoindex) {
+          adicionar(erros, 'html.basico', arquivo, 'build de staging exige robots noindex em todas as paginas');
         }
         if (conteudo.includes('VERSÃO DE REVISÃO')) {
           adicionar(erros, 'html.basico', arquivo, 'faixa de revisão encontrada em build de produção');
@@ -650,8 +659,8 @@ export const REGRAS = {
     return erros;
   },
 
-  'artefato.producao': ({ arquivos, producao, urlBase, slugsTeste = [] }) => {
-    if (!producao) {
+  'artefato.producao': ({ arquivos, producao, urlBase, slugsTeste = [], staging = false }) => {
+    if (!producao || staging) {
       return [];
     }
     const erros = [];
@@ -742,7 +751,7 @@ export function executarChecagens(contexto) {
   return Object.values(REGRAS).flatMap((regra) => regra(contexto));
 }
 
-export function checarSitemap({ arquivos, rotas, urlBase }) {
+export function checarSitemap({ arquivos, rotas, urlBase, staging = false }) {
   const erros = [];
   const sitemap = arquivos.get('sitemap.xml');
   if (!sitemap) {
@@ -771,7 +780,11 @@ export function checarSitemap({ arquivos, rotas, urlBase }) {
   if (!robots) {
     adicionar(erros, 'sitemap', 'robots.txt', 'robots.txt ausente');
   } else {
-    if (!robots.includes('User-agent: *') || !robots.includes('Allow: /')) {
+    if (staging) {
+      if (!robots.includes('User-agent: *') || !robots.includes('Disallow: /')) {
+        adicionar(erros, 'sitemap', 'robots.txt', 'robots.txt de staging deve bloquear com User-agent: * e Disallow: /');
+      }
+    } else if (!robots.includes('User-agent: *') || !robots.includes('Allow: /')) {
       adicionar(erros, 'sitemap', 'robots.txt', 'robots.txt deve liberar o site com User-agent: * e Allow: /');
     }
     if (!robots.includes(`Sitemap: ${urlBase}/sitemap.xml`)) {

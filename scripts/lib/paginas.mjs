@@ -7,7 +7,8 @@ import {
   servicoAprovado,
   telefonePrincipal,
   telefoneValidado,
-  unidadePublicavel
+  unidadePublicavel,
+  URL_BASE_PERMITIDA
 } from './dados.mjs';
 import {
   jsonLdBreadcrumb,
@@ -387,6 +388,9 @@ function montarListaServicos(ctx) {
 function robotsTxt(ctx, { noindex = false } = {}) {
   if (ctx.rascunho) {
     return 'noindex, nofollow';
+  }
+  if (ctx.urlBase !== URL_BASE_PERMITIDA) {
+    return 'noindex, follow';
   }
   return noindex ? 'noindex, follow' : 'index, follow';
 }
@@ -935,6 +939,14 @@ function montarAcordeao(ctx, preparo) {
     ? frag(ctx, 'parciais/aviso-simples', { texto: { texto: preparo.alerta } })
     : '';
 
+  const servicoDoPreparo = ctx.servicoPorId.get(preparo.servicoId);
+  const linkServico =
+    servicoDoPreparo && temRota(ctx, `/servicos/${servicoDoPreparo.slug}/`)
+      ? frag(ctx, 'parciais/link-servico-preparo', {
+          texto: { slug: servicoDoPreparo.slug, nome: servicoDoPreparo.nomeCurto ?? servicoDoPreparo.nome }
+        })
+      : '';
+
   return frag(ctx, 'parciais/acordeao-preparo', {
     texto: {
       ancora: preparo.slug,
@@ -947,6 +959,7 @@ function montarAcordeao(ctx, preparo) {
       dados,
       observacoes,
       alerta,
+      linkServico,
       avisoVariacao: frag(ctx, 'parciais/aviso-variacao', {
         texto: { texto: blocoPorId(ctx, 'preparo', 'aviso-variacao')?.texto ?? '' }
       })
@@ -982,7 +995,12 @@ function paginaPreparo(ctx) {
     robots: robotsTxt(ctx),
     jsonLd: [
       jsonLdOrganizacao(ctx.dados.site, ctx.urlBase),
-      jsonLdPagina({ urlBase: ctx.urlBase, rota: '/preparo-de-exames/', nome: dadosPagina.seo.titulo }),
+      jsonLdPagina({
+        urlBase: ctx.urlBase,
+        rota: '/preparo-de-exames/',
+        nome: dadosPagina.seo.titulo,
+        tipo: 'MedicalWebPage'
+      }),
       jsonLdBreadcrumb(itens, ctx.urlBase)
     ]
   };
@@ -1251,7 +1269,10 @@ function pagina404(ctx) {
       fragmento: { breadcrumb: montarBreadcrumb(ctx, itensTrilha), blocos, links }
     }),
     robots: robotsTxt(ctx, { noindex: true }),
-    jsonLd: []
+    jsonLd: [
+      jsonLdOrganizacao(ctx.dados.site, ctx.urlBase),
+      jsonLdBreadcrumb(itensTrilha, ctx.urlBase)
+    ]
   };
 }
 
@@ -1351,12 +1372,29 @@ function montarPagina(ctx, descritor) {
   }
 }
 
+function imagemOgDaRota(rota) {
+  if (rota === '/') {
+    return '/assets/og-home.png';
+  }
+  if (rota.startsWith('/unidades')) {
+    return '/assets/og-unidade.png';
+  }
+  if (rota.startsWith('/servicos')) {
+    return '/assets/og-servico.png';
+  }
+  if (rota.startsWith('/preparo-de-exames')) {
+    return '/assets/og-preparo.png';
+  }
+  return '/assets/og-institucional.png';
+}
+
 function renderizarLayout(ctx, pagina) {
   const meta = metadados({
     urlBase: ctx.urlBase,
     rota: pagina.rota,
     titulo: pagina.titulo,
-    descricao: pagina.descricao
+    descricao: pagina.descricao,
+    imagem: imagemOgDaRota(pagina.rota)
   });
 
   const jsonLdScript =

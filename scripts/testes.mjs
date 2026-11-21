@@ -23,6 +23,7 @@ import {
 import { validarGoLive } from './lib/golive.mjs';
 import { gerarRelatorio } from './lib/relatorio.mjs';
 import { renderizarBlocos } from './lib/blocos.mjs';
+import { gerarRobots } from './build.mjs';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const URL_BASE = 'https://terradic.com.br';
@@ -47,6 +48,15 @@ async function paginasDe(dados, { rascunho = false } = {}) {
 
 function htmlDaPagina(paginas, rota) {
   return paginas.find((pagina) => pagina.rota === rota)?.html ?? '';
+}
+
+function decodificarHtml(texto) {
+  return String(texto)
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
 }
 
 function jsonLdDaPagina(html) {
@@ -1092,4 +1102,222 @@ test('R35-B5: rodapé usa o telefone principal explícito da matriz', async () =
     rotas: planejarRotas(semPrincipal, publicacaoSem, { rascunho: false }).map((pagina) => pagina.rota)
   });
   assert.ok(errosSem.some((erro) => erro.codigo === 'unidades.json:telefones:teste-centro'));
+});
+
+
+// ---------- Rodada 4: F5/F6 ----------
+
+test('R4-F5: metadados completos e únicos em todas as rotas do rascunho', async () => {
+  const paginas = await paginasDe(dadosComUnidadesAtivas(), { rascunho: true });
+  const titulos = new Set();
+  const descricoes = new Set();
+  for (const pagina of paginas) {
+    const html = pagina.html;
+    const titulo = decodificarHtml(html.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? '').trim();
+    const descricao = decodificarHtml(
+      html.match(/<meta name="description" content="([^"]*)">/)?.[1] ?? ''
+    ).trim();
+    assert.ok(titulo.length > 0 && titulo.length <= 60, `${pagina.rota}: title ${titulo.length}`);
+    assert.ok(
+      descricao.length >= 120 && descricao.length <= 160,
+      `${pagina.rota}: description ${descricao.length}`
+    );
+    assert.ok(!titulos.has(titulo), `title repetido: ${titulo}`);
+    assert.ok(!descricoes.has(descricao), `description repetida: ${descricao}`);
+    titulos.add(titulo);
+    descricoes.add(descricao);
+
+    const canonical = `${URL_BASE}${pagina.rota === '/' ? '/' : pagina.rota}`;
+    assert.ok(html.includes(`rel="canonical" href="${canonical}"`), `${pagina.rota}: canonical`);
+    for (const propriedade of ['og:title', 'og:description', 'og:image', 'og:url', 'og:type']) {
+      assert.ok(html.includes(`property="${propriedade}"`), `${pagina.rota}: ${propriedade}`);
+    }
+    assert.ok(html.includes('property="og:locale" content="pt_BR"'));
+    assert.ok(html.includes('name="twitter:card" content="summary_large_image"'));
+
+    const imagemEsperada =
+      pagina.rota === '/'
+        ? 'og-home.png'
+        : pagina.rota.startsWith('/unidades')
+          ? 'og-unidade.png'
+          : pagina.rota.startsWith('/servicos')
+            ? 'og-servico.png'
+            : pagina.rota.startsWith('/preparo-de-exames')
+              ? 'og-preparo.png'
+              : 'og-institucional.png';
+    assert.ok(html.includes(`/assets/${imagemEsperada}`), `${pagina.rota}: og:image`);
+  }
+  assert.ok(paginas.length >= 6);
+});
+
+test('R4-F5: imagens OG existem, são 1200x630 e pesam menos de 200 KB', async () => {
+  for (const nome of [
+    'og-home.png',
+    'og-unidade.png',
+    'og-servico.png',
+    'og-preparo.png',
+    'og-institucional.png'
+  ]) {
+    const buffer = await readFile(path.join(RAIZ, 'src', 'estatico', 'assets', nome));
+    assert.ok(buffer.length <= 200 * 1024, `${nome}: ${buffer.length} bytes`);
+    assert.equal(buffer.readUInt32BE(16), 1200, `${nome}: largura`);
+    assert.equal(buffer.readUInt32BE(20), 630, `${nome}: altura`);
+  }
+});
+
+test('R4-F5: JSON-LD final sem propriedades proibidas e com tipos por página', async () => {
+  const paginas = await paginasDe(dadosComUnidadesAtivas(), { rascunho: true });
+  const proibidos = ['aggregateRating', 'review', 'priceRange', 'offers', 'Offer', 'price'];
+  for (const pagina of paginas) {
+    const bruto = pagina.html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1];
+    assert.ok(bruto, `${pagina.rota}: JSON-LD ausente`);
+    const grafo = JSON.parse(bruto);
+    assert.equal(grafo['@context'], 'https://schema.org');
+    assert.ok(Array.isArray(grafo['@graph']));
+    const texto = JSON.stringify(grafo);
+    for (const proibido of proibidos) {
+      assert.ok(!texto.includes(`"${proibido}"`), `${pagina.rota}: JSON-LD contém ${proibido}`);
+    }
+    const tipos = grafo['@graph'].map((no) => no['@type']);
+    assert.ok(tipos.includes('Organization'), `${pagina.rota}: Organization`);
+    if (pagina.rota === '/') {
+      assert.ok(tipos.includes('WebSite'));
+    } else {
+      assert.ok(!tipos.includes('WebSite'), `${pagina.rota}: WebSite fora da home`);
+      assert.ok(tipos.includes('BreadcrumbList'), `${pagina.rota}: BreadcrumbList`);
+    }
+    if (
+      (pagina.rota.startsWith('/servicos/') && pagina.rota !== '/servicos/') ||
+      pagina.rota.startsWith('/preparo-de-exames/')
+    ) {
+      assert.ok(tipos.includes('MedicalWebPage'), `${pagina.rota}: MedicalWebPage`);
+    }
+  }
+});
+
+test('R4-F5: Organization usa legalName, taxID e sameAs quando houver redes', async () => {
+  const dados = structuredClone(dadosComUnidadesAtivas());
+  dados.site.redesSociais.instagram = 'https://www.instagram.com/terradic';
+  const home = htmlDaPagina(await paginasDe(dados, { rascunho: true }), '/');
+  const grafo = JSON.parse(
+    home.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1]
+  );
+  const organizacao = grafo['@graph'].find((no) => no['@type'] === 'Organization');
+  assert.equal(organizacao.legalName, dados.site.marca.razaoSocial);
+  assert.equal(organizacao.taxID, dados.site.marca.cnpj);
+  assert.ok(organizacao.sameAs.includes('https://www.instagram.com/terradic'));
+});
+
+test('R4-F5: MedicalClinic completa e geo condicional', async () => {
+  const dados = dadosComMatrizCompleta();
+  const paginas = await paginasDe(dados);
+  const unidade = htmlDaPagina(paginas, '/unidades/teste-centro/');
+  const grafo = JSON.parse(
+    unidade.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1]
+  );
+  const clinica = grafo['@graph'].find((no) => no['@type'] === 'MedicalClinic');
+  assert.ok(clinica);
+  assert.ok(clinica.address.streetAddress);
+  assert.equal(clinica.address.addressLocality, 'Fortaleza');
+  assert.equal(clinica.telephone, '+558590000001');
+  assert.ok(clinica.openingHoursSpecification.length > 0);
+  assert.ok(clinica.availableService.some((servico) => servico.name === 'Tomografia computadorizada'));
+  assert.ok(clinica.parentOrganization);
+  assert.ok(clinica.areaServed);
+  assert.ok(clinica.geo);
+
+  const semGeo = dadosComUnidadesAtivas();
+  semGeo.unidades.unidades[1].geo = { lat: null, lng: null, precisao: 'aproximada' };
+  const paginasSemGeo = await paginasDe(semGeo, { rascunho: true });
+  const unidadeSemGeo = htmlDaPagina(paginasSemGeo, '/unidades/teste-litoral/');
+  const grafoSemGeo = JSON.parse(
+    unidadeSemGeo.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1]
+  );
+  const clinicaSemGeo = grafoSemGeo['@graph'].find((no) => no['@type'] === 'MedicalClinic');
+  assert.equal(clinicaSemGeo.geo, undefined);
+});
+
+test('R4-F5: internal linking atinge todas as rotas em até 2 cliques', async () => {
+  const paginas = await paginasDe(dadosComUnidadesAtivas(), { rascunho: true });
+  const rotas = new Set(paginas.map((pagina) => pagina.rota));
+  const links = new Map();
+  for (const pagina of paginas) {
+    const destinos = [...pagina.html.matchAll(/href="(\/[^"]*)"/g)]
+      .map((resultado) => resultado[1].split('#')[0].split('?')[0])
+      .filter((href) => href && !href.startsWith('/assets/') && href !== '/404.html');
+    for (const href of destinos) {
+      assert.ok(rotas.has(href), `${pagina.rota}: link para rota não gerada ${href}`);
+    }
+    links.set(pagina.rota, destinos);
+  }
+
+  const visitados = new Map([['/', 0]]);
+  let fila = ['/'];
+  while (fila.length > 0) {
+    const proxima = [];
+    for (const rota of fila) {
+      const profundidade = visitados.get(rota);
+      for (const destino of links.get(rota) ?? []) {
+        if (!visitados.has(destino)) {
+          visitados.set(destino, profundidade + 1);
+          proxima.push(destino);
+        }
+      }
+    }
+    fila = proxima;
+  }
+  for (const rota of rotas) {
+    if (rota === '/404.html') continue;
+    assert.ok(visitados.has(rota), `${rota}: inalcançável a partir da home`);
+    assert.ok(visitados.get(rota) <= 2, `${rota}: profundidade ${visitados.get(rota)}`);
+  }
+
+  const home = htmlDaPagina(paginas, '/');
+  for (const unidade of resolverPublicacao(dadosComUnidadesAtivas(), { rascunho: true }).unidades) {
+    assert.ok(home.includes(`/unidades/${unidade.slug}/`), `rodapé/home sem ${unidade.slug}`);
+  }
+});
+
+test('R4-F5: staging recebe noindex e robots próprio; produção não', async () => {
+  const dados = dadosComMatrizCompleta();
+  const stagingUrl = 'https://staging.terradic.com.br';
+  const paginas = await gerarPaginas({
+    dados,
+    publicacao: resolverPublicacao(dados, { rascunho: false }),
+    templates,
+    urlBase: stagingUrl,
+    rascunho: false
+  });
+  for (const pagina of paginas) {
+    assert.ok(pagina.html.includes('<meta name="robots" content="noindex, follow">'), pagina.rota);
+    assert.ok(pagina.html.includes(`href="${stagingUrl}${pagina.rota}"`), pagina.rota);
+  }
+  const robotsStaging = gerarRobots(stagingUrl);
+  assert.ok(robotsStaging.includes('Disallow: /'));
+  assert.ok(gerarRobots(URL_BASE).includes('Allow: /'));
+
+  const sitemap = `<?xml version="1.0" encoding="UTF-8"?><urlset><url><loc>${stagingUrl}/</loc><lastmod>2026-11-20</lastmod></url></urlset>`;
+  const erros = checarSitemap({
+    arquivos: new Map([
+      ['sitemap.xml', sitemap],
+      ['robots.txt', robotsStaging]
+    ]),
+    rotas: ['/'],
+    urlBase: stagingUrl,
+    staging: true
+  });
+  assert.deepEqual(erros, []);
+});
+
+test('R4-F6: preparo e mapa funcionam sem JavaScript', async () => {
+  const paginas = await paginasDe(dadosComUnidadesAtivas(), { rascunho: true });
+  const preparo = htmlDaPagina(paginas, '/preparo-de-exames/');
+  assert.ok(preparo.includes('<details'));
+  assert.ok(preparo.includes('<summary'));
+  const unidade = htmlDaPagina(paginas, '/unidades/teste-centro/');
+  assert.ok(unidade.includes('Abrir a localização no Google Maps'));
+  assert.ok(unidade.includes('Carregar mapa nesta página'));
+  const semScripts = preparo.replace(/<script[\s\S]*?<\/script>/g, '');
+  assert.ok(semScripts.includes('Preparo de exames'));
+  assert.ok(semScripts.includes('<details'));
 });

@@ -10,7 +10,7 @@ export function urlAbsoluta(urlBase, rota) {
   return `${urlBase}${rota}`;
 }
 
-export function metadados({ urlBase, rota, titulo, descricao, tipo = 'website' }) {
+export function metadados({ urlBase, rota, titulo, descricao, tipo = 'website', imagem = null }) {
   const url = urlAbsoluta(urlBase, rota);
   return {
     titulo,
@@ -20,7 +20,7 @@ export function metadados({ urlBase, rota, titulo, descricao, tipo = 'website' }
     ogDescricao: descricao,
     ogUrl: url,
     ogTipo: tipo,
-    ogImagem: `${urlBase}/assets/og-imagem.png`
+    ogImagem: `${urlBase}${imagem ?? '/assets/og-institucional.png'}`
   };
 }
 

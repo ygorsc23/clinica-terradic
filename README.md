@@ -48,8 +48,9 @@ node scripts/build.mjs --base-url=https://staging.exemplo.com
 ```
 
 `--go-live` implica produção + auditoria completa; ele não gera `dist/` se o gate falhar.
-`--base-url` troca apenas as URLs geradas (canonical, sitemap, robots) para pré-visualização; a
-validação continua exigindo `https://terradic.com.br` em `dados/site.json`.
+`--base-url` troca as URLs geradas (canonical, sitemap, robots) e coloca o build em modo staging:
+todas as páginas recebem `noindex, follow` e o `robots.txt` sai com `Disallow: /`. O `dados/site.json`
+continua exigindo `https://terradic.com.br`; nada disso afeta o build de produção.
 
 ## Estrutura
 
@@ -60,7 +61,7 @@ dados/exemplos-briefing.json   exemplos do levantamento; fora do build (só o va
 src/templates/    layout, páginas e parciais com tokens {{...}}
 src/css/          entrada do Tailwind + tokens de tema (únicas cores literais do projeto)
 src/js/           bundle único (menu, acordeões, fachada de mapa)
-src/estatico/     favicon, marca provisória, og-imagem
+src/estatico/     favicon, marca provisória, imagens OG por tipo (og-*.png)
 scripts/          build.mjs, servidor.mjs, testes.mjs, lib/*.mjs
 dist/             saída de produção gerada (ignorada no git)
 dist-rascunho/    saída de revisão do --rascunho/--check (ignorada no git)
@@ -206,6 +207,39 @@ o conteúdo foi apenas movido dos templates.
 O teste `npm test` varre os templates e falha se houver nó de texto longo fora de `{{...}}` que
 não esteja na lista de rótulos de interface/revisão permitidos.
 
+## SEO, imagens OG e JSON-LD
+
+- Metadados por rota: `title` ≤ 60, `description` 120–160, canonical autorreferente, OG completo
+  (`title`, `description`, `image`, `url`, `type`, `locale`) e `twitter:card`.
+- Imagens OG estáticas 1200×630 em `src/estatico/assets/og-*.png` (home, unidade, serviço, preparo e
+  institucional), ≤ 200 KB, geradas uma vez a partir dos tokens do tema, sem logo ou claim. O build
+  apenas copia; não gera imagem em runtime.
+- JSON-LD: `Organization` com `legalName`, `taxID` e `sameAs` quando houver; `MedicalClinic` por
+  unidade com endereço completo, `geo` só quando confirmado, telefone, horários,
+  `availableService`, `parentOrganization` e `areaServed`; `MedicalWebPage` para serviço e preparo;
+  `BreadcrumbList` em todas as páginas internas e 404; `WebSite` apenas na home.
+- Sitemap e robots derivam das rotas geradas; `lastmod` vem de `atualizadoEm`. O `--check` audita o
+  `dist/` existente e o `sitemap.xml` real.
+- Internal linking: unidade ↔ serviço ↔ preparo, rodapé com todas as unidades publicáveis,
+  profundidade ≤ 2 cliques a partir da home.
+
+## Auditoria F6 local
+
+```powershell
+npm run build:rascunho
+node scripts/auditoria.mjs
+```
+
+O script sobe `dist-rascunho` em `127.0.0.1`, abre Chrome/Edge headless via CDP e mede overflow
+horizontal em 320/360/768/1024/1280/1440 px nas páginas home, unidade, serviço, preparo, contato e
+404, além de foco inicial, menu mobile, acordeões e checagens manuais de acessibilidade. Ele não
+instala nada e não entra no runtime do site.
+
+**Ferramentas ausentes:** `axe-core` e `lighthouse` não estão instalados no projeto e não foram
+adicionados. A auditoria de acessibilidade é manual/scriptada (não axe) e a medição de performance é
+via CDP/Performance API (não score Lighthouse). Os números ficam em
+`relatorios/verificacao-rodada4.txt`.
+
 ## Privacidade
 
 - Nenhum `<form>`, campo de dado pessoal, cookie, pixel ou analytics (`site.json.analytics: null`).
@@ -267,6 +301,11 @@ Cada regra do `--check` e do validador tem um teste que comprova a falha:
 | Múltiplos data-nap | "R35-B3: nap.divergencia percorre todas as ocorrências de data-nap-escopo" |
 | Relatório C-10/C-12/C-11/C-14 | "R35-B4: C-10/C-12 são calculados...", "R35-B4: C-11 e C-14 passam a bloquear o go-live" |
 | Telefone principal | "R35-B5: rodapé usa o telefone principal explícito da matriz" |
+| Metadados/OG | "R4-F5: metadados completos e únicos...", "R4-F5: imagens OG existem..." |
+| JSON-LD | "R4-F5: JSON-LD final...", "R4-F5: Organization...", "R4-F5: MedicalClinic completa..." |
+| Internal linking | "R4-F5: internal linking atinge todas as rotas em até 2 cliques" |
+| Staging | "R4-F5: staging recebe noindex e robots próprio; produção não" |
+| Sem JS | "R4-F6: preparo e mapa funcionam sem JavaScript" |
 
 ## Identidade visual provisória
 
@@ -323,8 +362,10 @@ Cada regra do `--check` e do validador tem um teste que comprova a falha:
 - Blocos editoriais de `paginas.json` são renderizados na home, em unidades, serviços, preparo e
   nas páginas de F4 (tipos `titulo`, `subtitulo`, `paragrafo`, `lista`, `destaque`, `aviso`,
   `citacao`; texto sempre escapado). Bloco `pendente` é omitido da produção e listado no relatório.
-- JSON-LD nesta rodada é básico (`Organization`, `WebSite`, `MedicalClinic`, `BreadcrumbList`,
-  `MedicalWebPage`); o gerador completo, imagens OG por tipo e auditorias formais são Fase 5/6.
+- JSON-LD cobre `Organization`, `WebSite`, `MedicalClinic`, `MedicalWebPage`, `BreadcrumbList` e
+  `WebPage`; Rich Results Test externo não foi executado.
+- Ferramentas de auditoria externas não foram instaladas: axe e Lighthouse ficam **não
+  verificados**; a evidência é a auditoria manual/CDP em `scripts/auditoria.mjs`.
 - Convênios: catálogo vazio (`dados/convenios.json`); a página e a matriz unidade×convênio são
   estruturais e só publicam com blocos aprovados. A ressalva e a data de atualização já aparecem
   na página da unidade e na página de convênios, inclusive quando houver lista.
