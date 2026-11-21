@@ -170,7 +170,7 @@
 - [ ] **T051 [L] Rodar Lighthouse mobile e registrar baseline** — Performance ≥ 90, A11y ≥ 95, SEO ≥ 95, BP ≥ 90.
   *Pronto quando:* AC-18 atingido nas 5 páginas-chave e resultado anexado ao PR.
   *Nota:* exige navegador/Lighthouse; fica para o pré-go-live.
-  *Evidência parcial (rodada 4):* medição local via CDP (`scripts/auditoria.mjs`) — CSS 4,0 KB e JS 1,1 KB gzip; sem JS o preparo mantém `<details>` e a unidade mantém o link do mapa. CLS 0,419 medido em CDP sob emulação 4G, a investigar no pré-go-live. Não substitui o Lighthouse.
+  *Evidência parcial (rodada 4):* medição local via CDP (`scripts/auditoria.mjs`) — CSS 4,0 KB e JS 1,1 KB gzip; sem JS o preparo mantém `<details>` e a unidade mantém o link do mapa. CLS variou entre 0 e 0,419 em duas execuções CDP (home, 360 px, 4G), sem `sources` no relatório; investigar no pré-go-live junto com a estratégia do menu progressivo. Não substitui o Lighthouse.
 - [x] **T052 [L] Verificar degradação sem JS** — conteúdo essencial e acordeões acessíveis.
   *Pronto quando:* página de preparo continua legível com JS desabilitado.
   *Estado:* **concluída na rodada 4** — `R4-F6: preparo e mapa funcionam sem JavaScript` confirma `<details>/<summary>` no preparo e o link da fachada do mapa sem script.
