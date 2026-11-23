@@ -3,13 +3,13 @@
   <div class="flex flex-col gap-3">
     <p>{{pill}}</p>
     <h1 class="secao-titulo text-3xl">{{nomeExibicao}}</h1>
-    <p class="text-lg text-texto">Exames de imagem em {{cidade}}/{{uf}}</p>
+    <p class="text-lg text-texto">{{subtituloUnidade}}</p>
     {{seloRevisao}}
   </div>
 
   <div class="mt-8 grid gap-6 md:grid-cols-2">
     <section aria-labelledby="contato-titulo">
-      <h2 id="contato-titulo" class="secao-titulo text-2xl">Contato e endereço</h2>
+      <h2 id="contato-titulo" class="secao-titulo text-2xl">{{tituloContato}}</h2>
       <div class="mt-4 flex flex-col gap-3">
         {{blocoEndereco}}
         {{notaEnderecoMatriz}}
@@ -19,18 +19,18 @@
       </div>
     </section>
     <section aria-labelledby="horario-titulo">
-      <h2 id="horario-titulo" class="secao-titulo text-2xl">Horário de funcionamento</h2>
+      <h2 id="horario-titulo" class="secao-titulo text-2xl">{{tituloHorario}}</h2>
       <div class="mt-4">{{blocoHorarios}}</div>
     </section>
   </div>
 
   <section class="mt-10" aria-labelledby="servicos-titulo">
-    <h2 id="servicos-titulo" class="secao-titulo text-2xl">Serviços nesta unidade</h2>
+    <h2 id="servicos-titulo" class="secao-titulo text-2xl">{{tituloServicos}}</h2>
     <div class="mt-4">{{blocoServicos}}</div>
   </section>
 
   <section class="mt-10" aria-labelledby="convenios-titulo">
-    <h2 id="convenios-titulo" class="secao-titulo text-2xl">Convênios e atendimento particular</h2>
+    <h2 id="convenios-titulo" class="secao-titulo text-2xl">{{tituloConvenios}}</h2>
     <div class="mt-4 flex flex-col gap-3">
       {{blocoConvenios}}
       {{blocoParticular}}

@@ -183,13 +183,19 @@ export function validarGoLive({ dados, publicacao, rotas }) {
     );
   }
 
-  if (site.identidadeVisual?.status !== 'oficial') {
+  const aceiteIdentidade = site.identidadeVisual?.aceiteFormal;
+  const aceiteIdentidadeValido =
+    aceiteIdentidade &&
+    Boolean(aceiteIdentidade.aceitoPor) &&
+    Boolean(aceiteIdentidade.data) &&
+    Boolean(aceiteIdentidade.documento);
+  if (site.identidadeVisual?.status !== 'oficial' && !aceiteIdentidadeValido) {
     erro(
       erros,
       'site.json',
       'identidadeVisual.status',
       'site',
-      'go-live exige identidade visual oficial ou aceite formal registrado'
+      'go-live exige status "oficial" ou aceite formal com aceitoPor, data e documento'
     );
   }
   if (site.privacidade?.politicaPublicada !== true) {

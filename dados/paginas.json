@@ -109,6 +109,12 @@
           "tipo": "paragrafo",
           "texto": "O WhatsApp é um serviço externo: ao continuar, você sai do site da clínica.",
           "status": "aprovado"
+        },
+        {
+          "id": "cta-aviso",
+          "tipo": "aviso",
+          "texto": "Portal de exames externo. O site não coleta dados. O acesso usa {{instrucoes}} e ocorre em ambiente de terceiros.",
+          "status": "aprovado"
         }
       ]
     },
@@ -174,6 +180,40 @@
           "id": "aviso-variacao",
           "tipo": "aviso",
           "texto": "O preparo pode variar conforme a unidade e o equipamento. Confirme as orientações com a unidade antes do exame.",
+          "status": "aprovado"
+        }
+      ]
+    },
+    "unidade": {
+      "blocos": [
+        {
+          "id": "subtitulo-unidade",
+          "tipo": "paragrafo",
+          "texto": "Exames de imagem em {cidade}/{uf}",
+          "status": "aprovado"
+        },
+        {
+          "id": "contato-titulo",
+          "tipo": "titulo",
+          "texto": "Contato e endereço",
+          "status": "aprovado"
+        },
+        {
+          "id": "horario-titulo",
+          "tipo": "titulo",
+          "texto": "Horário de funcionamento",
+          "status": "aprovado"
+        },
+        {
+          "id": "servicos-titulo",
+          "tipo": "titulo",
+          "texto": "Serviços nesta unidade",
+          "status": "aprovado"
+        },
+        {
+          "id": "convenios-titulo",
+          "tipo": "titulo",
+          "texto": "Convênios e atendimento particular",
           "status": "aprovado"
         }
       ]

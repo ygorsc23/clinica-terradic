@@ -36,7 +36,14 @@ function frag(ctx, chave, opcoes = {}) {
 }
 
 function blocoPorId(ctx, pagina, id) {
-  return (ctx.dados.paginas.paginas[pagina]?.blocos ?? []).find((bloco) => bloco?.id === id);
+  const bloco = (ctx.dados.paginas.paginas[pagina]?.blocos ?? []).find((item) => item?.id === id);
+  if (!bloco) {
+    return null;
+  }
+  if (ctx.rascunho) {
+    return bloco;
+  }
+  return bloco.status === 'aprovado' ? bloco : null;
 }
 
 function blocosPendentesDaPagina(dados, chave) {
@@ -69,8 +76,13 @@ function textoInstrucoes(ctx) {
 }
 
 function montarCta(ctx, classeBotao = 'botao-primario') {
+  const aviso = escapar(blocoPorId(ctx, 'home', 'cta-aviso')?.texto ?? '').replace(
+    '{{instrucoes}}',
+    escapar(textoInstrucoes(ctx))
+  );
   return frag(ctx, 'parciais/cta-exames', {
-    texto: { url: ctx.dados.site.portalExames.url, classeBotao }
+    texto: { url: ctx.dados.site.portalExames.url, classeBotao },
+    fragmento: { aviso }
   });
 }
 
@@ -686,11 +698,20 @@ function paginaUnidade(ctx, unidade) {
     { rotulo: unidade.nomeExibicao, url: `/unidades/${unidade.slug}/` }
   ];
 
+  const subtituloUnidade = (blocoPorId(ctx, 'unidade', 'subtitulo-unidade')?.texto ?? '')
+    .replace('{cidade}', unidade.cidade)
+    .replace('{uf}', unidade.uf);
+
   const conteudo = frag(ctx, 'unidade', {
     texto: {
       nomeExibicao: unidade.nomeExibicao,
       cidade: unidade.cidade,
-      uf: unidade.uf
+      uf: unidade.uf,
+      subtituloUnidade,
+      tituloContato: blocoPorId(ctx, 'unidade', 'contato-titulo')?.texto ?? '',
+      tituloHorario: blocoPorId(ctx, 'unidade', 'horario-titulo')?.texto ?? '',
+      tituloServicos: blocoPorId(ctx, 'unidade', 'servicos-titulo')?.texto ?? '',
+      tituloConvenios: blocoPorId(ctx, 'unidade', 'convenios-titulo')?.texto ?? ''
     },
     fragmento: {
       breadcrumb: montarBreadcrumb(ctx, itensTrilha),

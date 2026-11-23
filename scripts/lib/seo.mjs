@@ -107,7 +107,7 @@ export function jsonLdClinica(unidade, servicos, urlBase) {
   if (
     typeof unidade.geo?.lat === 'number' &&
     typeof unidade.geo?.lng === 'number' &&
-    ['exata', 'aproximada'].includes(unidade.geo?.precisao) &&
+    unidade.geo?.precisao === 'exata' &&
     Array.isArray(unidade.validacao?.fontes) &&
     unidade.validacao.fontes.length > 0
   ) {

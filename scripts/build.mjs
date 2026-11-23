@@ -59,6 +59,31 @@ export function diretorioDeSaida({ rascunho = false, urlBase = URL_BASE_PERMITID
   return 'dist';
 }
 
+export function validarBaseUrl(baseUrl) {
+  if (typeof baseUrl !== 'string' || baseUrl.trim() === '') {
+    return 'base-url vazia';
+  }
+  if (baseUrl.endsWith('/')) {
+    return 'base-url nao pode terminar com barra';
+  }
+  if (!baseUrl.startsWith('https://')) {
+    return 'base-url deve usar https://';
+  }
+  let url;
+  try {
+    url = new URL(baseUrl);
+  } catch {
+    return 'base-url invalida';
+  }
+  if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) {
+    return 'base-url deve ser https, sem credenciais, query ou hash';
+  }
+  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/i.test(url.hostname)) {
+    return 'base-url com host invalido';
+  }
+  return null;
+}
+
 export function gerarSitemap(paginas, urlBase) {
   const urls = paginas
     .filter((pagina) => pagina.rota !== '/404.html')
@@ -253,7 +278,16 @@ export async function executarBuild({
   check = check || goLive;
 
   const modo = goLive ? 'go-live' : rascunho ? 'rascunho' : 'producao';
-  log(`Terradic — build (${modo})`);
+  log(`Terradic - build (${modo})`);
+
+  if (baseUrl) {
+    const erroBaseUrl = validarBaseUrl(baseUrl);
+    if (erroBaseUrl) {
+      const erro = { codigo: 'base-url:site', arquivo: 'base-url', campo: 'url', entidade: 'site', detalhe: erroBaseUrl };
+      console.error(`base-url:site - ${erroBaseUrl}`);
+      return { ok: false, erros: [erro], avisos, paginas: [] };
+    }
+  }
 
   const dados = await carregarDados(raiz, { rascunho, avisar });
   const exemplos = await carregarExemplosBriefing(raiz);

@@ -2,8 +2,7 @@ import {
   telefoneValidado,
   unidadeAtivaConfirmada,
   unidadePublicavel,
-  unidadeTemServicoAprovado,
-  URL_BASE_PERMITIDA
+  unidadeTemServicoAprovado
 } from './dados.mjs';
 
 const CAMPOS_STATUS_OK = new Set([
@@ -59,6 +58,10 @@ function percorrer(valor, caminho, destino) {
     destino.push({ campo: caminho, situacao: 'false' });
     return;
   }
+  if (caminho === 'geo.precisao' && valor === 'aproximada') {
+    destino.push({ campo: caminho, situacao: 'aproximada (bloco geo omitido do JSON-LD)' });
+    return;
+  }
   if (typeof valor === 'string' && /^(pendente|parcial|provisoria|rascunho|a-confirmar|desatualizado)$/.test(valor)) {
     destino.push({ campo: caminho, situacao: `status: ${valor}` });
   }
@@ -105,9 +108,6 @@ export function gerarRelatorio({ dados, publicacao }) {
       !unidade.endereco?.bairro ||
       !unidade.endereco?.cep
   );
-  const unidadeSemGeo = unidades.some(
-    (unidade) => typeof unidade.geo?.lat !== 'number' || typeof unidade.geo?.lng !== 'number'
-  );
   const unidadeSemTelefone = unidades.some(
     (unidade) => !(unidade.telefones ?? []).some(telefoneValidado)
   );
@@ -125,6 +125,12 @@ export function gerarRelatorio({ dados, publicacao }) {
   const textoInstitucionalPendente = blocosPendentesJson.some((bloco) =>
     ['home', 'sobre'].includes(bloco.pagina)
   );
+  const aceiteIdentidade = site.identidadeVisual?.aceiteFormal;
+  const aceiteIdentidadeValido =
+    aceiteIdentidade &&
+    Boolean(aceiteIdentidade.aceitoPor) &&
+    Boolean(aceiteIdentidade.data) &&
+    Boolean(aceiteIdentidade.documento);
 
   const bloqueios = [
     {
@@ -138,7 +144,7 @@ export function gerarRelatorio({ dados, publicacao }) {
       id: 'C-02',
       item: 'Endereço completo, CEP e coordenadas de cada unidade',
       responsavel: 'Clínica',
-      pendente: unidadeSemEndereco || unidadeSemGeo,
+      pendente: unidadeSemEndereco,
       bloqueia: true
     },
     {
@@ -201,15 +207,17 @@ export function gerarRelatorio({ dados, publicacao }) {
       id: 'C-11',
       item: 'Logotipo em SVG, cores oficiais, tipografia, fotos reais e autorizações de imagem',
       responsavel: 'Clínica',
-      pendente: site.identidadeVisual?.status !== 'oficial',
+      pendente: site.identidadeVisual?.status !== 'oficial' && !aceiteIdentidadeValido,
       bloqueia: true
     },
     {
       id: 'C-12',
       item: 'Domínio definitivo e acesso ao DNS/hospedagem',
       responsavel: 'Clínica',
-      pendente: site.urlBase !== URL_BASE_PERMITIDA,
-      bloqueia: true
+      pendente: true,
+      bloqueia: true,
+      observacao:
+        'Domínio configurado em urlBase; acesso ao DNS/hospedagem é dependência operacional do cliente e não é inferida pelo build.'
     },
     {
       id: 'C-13',
@@ -323,7 +331,8 @@ export function gerarRelatorio({ dados, publicacao }) {
     );
   }
   linhas.push('');
-  linhas.push('> C-12: o domínio configurado em `urlBase` é verificável por dados; o acesso operacional ao DNS/hospedagem não é inferido pelo build.');
+  linhas.push('> C-02: a ausência de `geo` é listada nas unidades, mas **não** bloqueia o go-live; o bloqueio de C-02 é o endereço/CEP.');
+  linhas.push('> C-12: o domínio configurado em `urlBase` é verificável por dados; o acesso operacional ao DNS/hospedagem é dependência do cliente e não é inferido pelo build.');
   linhas.push('');
   linhas.push('## Site');
   linhas.push('');

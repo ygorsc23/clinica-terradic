@@ -24,7 +24,14 @@ import {
 import { validarGoLive } from './lib/golive.mjs';
 import { gerarRelatorio } from './lib/relatorio.mjs';
 import { renderizarBlocos } from './lib/blocos.mjs';
-import { diretorioDeSaida, fotografiaDiretorio, gerarRobots, gerarSitemap } from './build.mjs';
+import {
+  diretorioDeSaida,
+  executarBuild,
+  fotografiaDiretorio,
+  gerarRobots,
+  gerarSitemap,
+  validarBaseUrl
+} from './build.mjs';
 import { serializarJsonLd } from './lib/seo.mjs';
 import { normalizarBase, prefixarDiretorio, prefixarHtml, validarArtefato } from './prefixar-base.mjs';
 
@@ -1067,7 +1074,8 @@ test('R35-B4: C-10/C-12 são calculados e o relatório não repete F4 como não 
     publicacao: resolverPublicacao(dados, { rascunho: false })
   });
   assert.equal(relatorio.json.bloqueios.find((item) => item.id === 'C-10').pendente, false);
-  assert.equal(relatorio.json.bloqueios.find((item) => item.id === 'C-12').pendente, false);
+  assert.equal(relatorio.json.bloqueios.find((item) => item.id === 'C-12').pendente, true);
+  assert.ok(relatorio.json.bloqueios.find((item) => item.id === 'C-12').observacao.includes('DNS/hospedagem'));
   assert.ok(!relatorio.markdown.includes('Fase 4 / T033-T035 não implementada'));
 });
 
@@ -1118,6 +1126,7 @@ test('R4-F5: metadados completos e únicos em todas as rotas do rascunho', async
   const paginas = await paginasDe(dadosComUnidadesAtivas(), { rascunho: true });
   const titulos = new Set();
   const descricoes = new Set();
+  const ogUsadas = new Set();
   for (const pagina of paginas) {
     const html = pagina.html;
     const titulo = decodificarHtml(html.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? '').trim();
@@ -1153,8 +1162,24 @@ test('R4-F5: metadados completos e únicos em todas as rotas do rascunho', async
               ? 'og-preparo.png'
               : 'og-institucional.png';
     assert.ok(html.includes(`/assets/${imagemEsperada}`), `${pagina.rota}: og:image`);
+    ogUsadas.add(imagemEsperada);
   }
+  assert.deepEqual(
+    [...ogUsadas].sort(),
+    ['og-home.png', 'og-institucional.png', 'og-preparo.png', 'og-servico.png', 'og-unidade.png']
+  );
   assert.ok(paginas.length >= 6);
+});
+
+test('R4-F5: /politica-de-privacidade/ usa og institucional quando publicada', async () => {
+  const dados = structuredClone(dadosComUnidadesAtivas());
+  dados.site.privacidade.politicaPublicada = true;
+  dados.paginas.paginas.privacidade.blocos.forEach((bloco) => {
+    bloco.status = 'aprovado';
+  });
+  const paginas = await paginasDe(dados);
+  const privacidade = htmlDaPagina(paginas, '/politica-de-privacidade/');
+  assert.ok(privacidade.includes('/assets/og-institucional.png'));
 });
 
 test('R4-F5: imagens OG existem, são 1200x630 e pesam menos de 200 KB', async () => {
@@ -1232,7 +1257,17 @@ test('R4-F5: MedicalClinic completa e geo condicional', async () => {
   assert.ok(clinica.parentOrganization);
   assert.ok(clinica.areaServed);
   assert.ok(!Object.hasOwn(clinica, 'medicalSpecialty'));
-  assert.ok(clinica.geo);
+  assert.equal(clinica.geo, undefined);
+
+  const comGeo = structuredClone(dados);
+  comGeo.unidades.unidades[0].geo.precisao = 'exata';
+  const paginaComGeo = htmlDaPagina(await paginasDe(comGeo), '/unidades/teste-centro/');
+  const grafoComGeo = JSON.parse(
+    paginaComGeo.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1]
+  );
+  const clinicaComGeo = grafoComGeo['@graph'].find((no) => no['@type'] === 'MedicalClinic');
+  assert.ok(clinicaComGeo.geo);
+  assert.equal(clinicaComGeo.geo.latitude, comGeo.unidades.unidades[0].geo.lat);
 
   const semGeo = dadosComUnidadesAtivas();
   semGeo.unidades.unidades[1].geo = { lat: null, lng: null, precisao: 'aproximada' };
@@ -1427,6 +1462,12 @@ test('R4-QA: geo exige precisao e fontes para entrar no JSON-LD', async () => {
   assert.equal(clinicaSemPrecisao.geo, undefined);
 
   unidade.geo.precisao = 'aproximada';
+  const comPrecisaoAproximada = await paginasDe(dados, { rascunho: true });
+  const clinicaAproximada = jsonLdDaPagina(
+    htmlDaPagina(comPrecisaoAproximada, '/unidades/teste-centro/')
+  )['@graph'].find((no) => no['@type'] === 'MedicalClinic');
+  assert.equal(clinicaAproximada.geo, undefined);
+
   const fontes = unidade.validacao.fontes;
   unidade.validacao.fontes = [];
   const semFonte = await paginasDe(dados, { rascunho: true });
@@ -1436,6 +1477,7 @@ test('R4-QA: geo exige precisao e fontes para entrar no JSON-LD', async () => {
   assert.equal(clinicaSemFonte.geo, undefined);
 
   unidade.validacao.fontes = fontes;
+  unidade.geo.precisao = 'exata';
   const comGeo = await paginasDe(dados);
   const clinicaComGeo = jsonLdDaPagina(
     htmlDaPagina(comGeo, '/unidades/teste-centro/')
@@ -1445,6 +1487,13 @@ test('R4-QA: geo exige precisao e fontes para entrar no JSON-LD', async () => {
     latitude: -3.7319,
     longitude: -38.5267
   });
+
+  unidade.geo.precisao = 'confirmada';
+  const comPrecisaoInvalida = await paginasDe(dados, { rascunho: true });
+  const clinicaInvalida = jsonLdDaPagina(
+    htmlDaPagina(comPrecisaoInvalida, '/unidades/teste-centro/')
+  )['@graph'].find((no) => no['@type'] === 'MedicalClinic');
+  assert.equal(clinicaInvalida.geo, undefined);
 });
 
 test('R4-QA: diretorio de saida separa producao, rascunho e staging', () => {
@@ -1659,4 +1708,184 @@ test('R4-QA: validarArtefato detecta atributos e links nao suportados', async ()
   } finally {
     await rm(diretorio, { recursive: true, force: true });
   }
+});
+
+
+// ---------- Rodada 5 ----------
+
+test('R5-M1: validação de --base-url', () => {
+  assert.equal(validarBaseUrl('https://staging.terradic.com.br'), null);
+  assert.equal(validarBaseUrl('https://ygorsc23.github.io/clinica-terradic'), null);
+  assert.ok(validarBaseUrl('https://staging.terradic.com.br/'));
+  assert.ok(validarBaseUrl('http://staging.terradic.com.br'));
+  assert.ok(validarBaseUrl('https://'));
+  assert.ok(validarBaseUrl('https://localhost'));
+  assert.ok(validarBaseUrl('https://staging.terradic.com.br?x=1'));
+  assert.ok(validarBaseUrl('https://staging.terradic.com.br#x'));
+  assert.equal(diretorioDeSaida({ rascunho: false, urlBase: URL_BASE }), 'dist');
+  assert.equal(
+    diretorioDeSaida({ rascunho: false, urlBase: 'https://staging.terradic.com.br' }),
+    'dist-staging'
+  );
+  assert.equal(
+    diretorioDeSaida({ rascunho: true, urlBase: 'https://staging.terradic.com.br' }),
+    'dist-rascunho'
+  );
+});
+
+test('R5-M1: staging grava dist-staging e não toca dist; rascunho+baseurl grava dist-rascunho', async () => {
+  const distIndexAntes = await readFile(path.join(RAIZ, 'dist', 'index.html'), 'utf8').catch(() => null);
+  const distSitemapAntes = await readFile(path.join(RAIZ, 'dist', 'sitemap.xml'), 'utf8').catch(() => null);
+
+  const staging = await executarBuild({
+    raiz: RAIZ,
+    rascunho: false,
+    baseUrl: 'https://staging.terradic.com.br',
+    silencioso: true
+  });
+  assert.equal(staging.ok, true);
+  const stagingHtml = await readFile(path.join(RAIZ, 'dist-staging', 'index.html'), 'utf8');
+  const stagingRobots = await readFile(path.join(RAIZ, 'dist-staging', 'robots.txt'), 'utf8');
+  assert.ok(stagingHtml.includes('<meta name="robots" content="noindex, follow">'));
+  assert.ok(stagingHtml.includes('https://staging.terradic.com.br/'));
+  assert.ok(stagingRobots.includes('Disallow: /'));
+
+  const draft = await executarBuild({
+    raiz: RAIZ,
+    rascunho: true,
+    baseUrl: 'https://staging.terradic.com.br',
+    silencioso: true
+  });
+  assert.equal(draft.ok, true);
+  const draftHtml = await readFile(path.join(RAIZ, 'dist-rascunho', 'index.html'), 'utf8');
+  assert.ok(draftHtml.includes('<meta name="robots" content="noindex, nofollow">'));
+
+  const distIndexDepois = await readFile(path.join(RAIZ, 'dist', 'index.html'), 'utf8').catch(() => null);
+  const distSitemapDepois = await readFile(path.join(RAIZ, 'dist', 'sitemap.xml'), 'utf8').catch(() => null);
+  assert.equal(distIndexDepois, distIndexAntes);
+  assert.equal(distSitemapDepois, distSitemapAntes);
+});
+
+test('R5-M2: geo exige precisão não aproximada e fontes', async () => {
+  const dados = structuredClone(dadosComMatrizCompleta());
+  dados.unidades.unidades[0].geo.precisao = 'exata';
+  dados.unidades.unidades[0].validacao.fontes = [];
+  const semFontes = htmlDaPagina(await paginasDe(dados, { rascunho: true }), '/unidades/teste-centro/');
+  const grafo = JSON.parse(
+    semFontes.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1]
+  );
+  const clinica = grafo['@graph'].find((no) => no['@type'] === 'MedicalClinic');
+  assert.equal(clinica.geo, undefined);
+});
+
+test('R5-M3: bloco transversal pendente não sai na produção e aparece no rascunho', async () => {
+  const dados = dadosComMatrizCompleta();
+  dados.paginas.paginas.servicos.blocos.find(
+    (bloco) => bloco.id === 'disclaimer-servico'
+  ).status = 'pendente';
+
+  const producao = htmlDaPagina(await paginasDe(dados), '/servicos/tomografia/');
+  assert.ok(!producao.includes('Este conteúdo é informativo'));
+  const rascunho = htmlDaPagina(await paginasDe(dados, { rascunho: true }), '/servicos/tomografia/');
+  assert.ok(rascunho.includes('Este conteúdo é informativo'));
+
+  const publicacao = resolverPublicacao(dados, { rascunho: false });
+  const erros = validarGoLive({
+    dados,
+    publicacao,
+    rotas: planejarRotas(dados, publicacao, { rascunho: false }).map((pagina) => pagina.rota)
+  });
+  assert.ok(erros.some((erro) => erro.codigo === 'paginas.json:blocos:servicos'));
+});
+
+test('R5-M4: identidade provisória exige aceite formal completo', () => {
+  const dados = dadosComMatrizCompleta();
+  const publicacao = resolverPublicacao(dados, { rascunho: false });
+  const errosSem = validarGoLive({
+    dados,
+    publicacao,
+    rotas: planejarRotas(dados, publicacao, { rascunho: false }).map((pagina) => pagina.rota)
+  });
+  assert.ok(errosSem.some((erro) => erro.codigo === 'site.json:identidadeVisual.status:site'));
+
+  dados.site.identidadeVisual.aceiteFormal = {
+    aceitoPor: 'Direção da clínica',
+    data: '2026-11-23',
+    documento: 'Aceite digital 123'
+  };
+  const errosCom = validarGoLive({
+    dados,
+    publicacao,
+    rotas: planejarRotas(dados, publicacao, { rascunho: false }).map((pagina) => pagina.rota)
+  });
+  assert.ok(!errosCom.some((erro) => erro.codigo === 'site.json:identidadeVisual.status:site'));
+
+  dados.site.identidadeVisual.aceiteFormal.documento = null;
+  const errosParcial = validarDados(dados, { exemplos });
+  assert.ok(
+    temCodigo(errosParcial, 'site.json:identidadeVisual.aceiteFormal.documento:site')
+  );
+});
+
+test('R5-B1: títulos editoriais da unidade vêm de paginas.json', async () => {
+  const dados = dadosComUnidadesAtivas();
+  dados.paginas.paginas.unidade.blocos.find((bloco) => bloco.id === 'contato-titulo').texto =
+    'Contato Teste';
+  dados.paginas.paginas.unidade.blocos.find((bloco) => bloco.id === 'subtitulo-unidade').texto =
+    'Unidade de imagem em {cidade}';
+  const unidade = htmlDaPagina(
+    await paginasDe(dados, { rascunho: true }),
+    '/unidades/teste-centro/'
+  );
+  assert.ok(unidade.includes('Contato Teste'));
+  assert.ok(unidade.includes('Unidade de imagem em Fortaleza'));
+});
+
+test('subtitulo da unidade escapa & e < uma unica vez', async () => {
+  const dados = dadosComUnidadesAtivas();
+  dados.paginas.paginas.unidade.blocos.find((bloco) => bloco.id === 'subtitulo-unidade').texto =
+    'Imagem & <exames> em {cidade}/{uf}';
+  const html = htmlDaPagina(await paginasDe(dados, { rascunho: true }), '/unidades/teste-centro/');
+  assert.ok(html.includes('Imagem &amp; &lt;exames&gt; em Fortaleza/CE'));
+  assert.ok(!html.includes('&amp;amp;'));
+});
+
+test('relatorio lista geo.precisao aproximada sem alterar o gate C-02', () => {
+  const dados = dadosComUnidadesAtivas();
+  dados.unidades.unidades = dados.unidades.unidades.filter(
+    (item) => item.slug === 'teste-centro'
+  );
+  const relatorio = gerarRelatorio({
+    dados,
+    publicacao: resolverPublicacao(dados, { rascunho: false })
+  });
+  const unidade = relatorio.json.unidades.find((item) => item.slug === 'teste-centro');
+  assert.ok(
+    unidade.pendencias.some(
+      (pendencia) => pendencia.campo === 'geo.precisao' && pendencia.situacao.includes('aproximada')
+    )
+  );
+  assert.equal(relatorio.json.bloqueios.find((item) => item.id === 'C-02').pendente, false);
+});
+
+test('R5-B2: C-02 não bloqueia por geo e C-12 continua dependência do cliente', () => {
+  const relatorio = gerarRelatorio({
+    dados: dadosBase,
+    publicacao: resolverPublicacao(dadosBase, { rascunho: false })
+  });
+  const c02 = relatorio.json.bloqueios.find((item) => item.id === 'C-02');
+  const c12 = relatorio.json.bloqueios.find((item) => item.id === 'C-12');
+  assert.equal(c02.pendente, true);
+  assert.equal(c12.pendente, true);
+  assert.ok(c12.observacao.includes('DNS/hospedagem'));
+});
+
+test('R5-B7: CTA do header/hero traz aviso externo, não coleta e instruções', async () => {
+  const dados = structuredClone(dadosComUnidadesAtivas());
+  dados.paginas.paginas.home.blocos.find((bloco) => bloco.id === 'cta-aviso').texto =
+    'Aviso de CTA de teste: ambiente externo, o site não coleta dados, acesso com {{instrucoes}}.';
+  const home = htmlDaPagina(await paginasDe(dados, { rascunho: true }), '/');
+  assert.ok(home.includes('Aviso de CTA de teste: ambiente externo'));
+  assert.ok(home.includes('o site não coleta dados'));
+  assert.ok(home.includes('CPF e protocolo/senha'));
 });

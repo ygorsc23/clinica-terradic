@@ -36,7 +36,12 @@
     "origem": "flyer de campanha — unidade Pacajus (redes sociais)",
     "brandbook": null,
     "logoOficial": null,
-    "substituidaEm": null
+    "substituidaEm": null,
+    "aceiteFormal": {
+      "aceitoPor": null,
+      "data": null,
+      "documento": null
+    }
   },
   "privacidade": {
     "politicaPublicada": false,

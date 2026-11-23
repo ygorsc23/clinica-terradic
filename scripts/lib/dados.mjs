@@ -257,6 +257,33 @@ export function validarDados(dados, { exemplos = null, rascunho = false } = {}) 
     exigir(erros, 'site.json', 'responsavelTecnico.crmUf', 'site', rt.crmUf);
   }
 
+  const identidade = site.identidadeVisual ?? {};
+  if (!['provisoria', 'oficial'].includes(identidade.status)) {
+    erro(erros, 'site.json', 'identidadeVisual.status', 'site', 'use "provisoria" ou "oficial"');
+  }
+  const aceiteFormal = identidade.aceiteFormal;
+  if (aceiteFormal) {
+    const preenchido =
+      Boolean(aceiteFormal.aceitoPor) ||
+      Boolean(aceiteFormal.data) ||
+      Boolean(aceiteFormal.documento);
+    if (preenchido) {
+      exigir(erros, 'site.json', 'identidadeVisual.aceiteFormal.aceitoPor', 'site', aceiteFormal.aceitoPor);
+      exigir(erros, 'site.json', 'identidadeVisual.aceiteFormal.documento', 'site', aceiteFormal.documento);
+      if (aceiteFormal.data == null) {
+        erro(
+          erros,
+          'site.json',
+          'identidadeVisual.aceiteFormal.data',
+          'site',
+          'aceite formal exige data'
+        );
+      } else {
+        validarData(erros, 'site.json', 'identidadeVisual.aceiteFormal.data', 'site', aceiteFormal.data);
+      }
+    }
+  }
+
   validarAtualizadoEm(erros, 'unidades.json', dados.unidades);
   validarAtualizadoEm(erros, 'servicos.json', dados.servicos);
   validarAtualizadoEm(erros, 'preparos.json', dados.preparos);
