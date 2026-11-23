@@ -241,7 +241,8 @@ não esteja na lista de rótulos de interface/revisão permitidos.
 ## SEO, imagens OG e JSON-LD
 
 - Metadados por rota: `title` ≤ 60, `description` 120–160, canonical autorreferente, OG completo
-  (`title`, `description`, `image`, `url`, `type`, `locale`) e `twitter:card`.
+  (`title`, `description`, `image`, `url`, `type`, `locale`) e `twitter:card`. O build **falha** se
+  `title` passar de 60 ou `description` sair de 120–160; não trunca.
 - Imagens OG estáticas 1200×630 em `src/estatico/assets/og-*.png` (home, unidade, serviço, preparo e
   institucional), ≤ 200 KB, geradas uma vez a partir dos tokens do tema, sem logo ou claim. O build
   apenas copia; não gera imagem em runtime.
