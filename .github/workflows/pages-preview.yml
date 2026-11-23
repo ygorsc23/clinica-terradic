@@ -1,0 +1,83 @@
+name: pages-preview
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-preview
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Dependencias
+        run: npm ci
+
+      - name: Testes
+        run: npm test
+
+      - name: Build de rascunho com base de preview
+        run: |
+          BASE="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}"
+          npm run check -- --base-url="$BASE"
+
+      - name: Prefixar base do project page
+        run: node scripts/prefixar-base.mjs dist-rascunho "/${GITHUB_REPOSITORY#*/}"
+
+      - name: Guard de artefato de preview
+        run: |
+          set -euo pipefail
+          test -f dist-rascunho/index.html
+          test -f dist-rascunho/404.html
+          test ! -e dist
+
+          faltando=$(grep -RIL --include='*.html' 'noindex' dist-rascunho || true)
+          if [ -n "$faltando" ]; then
+            echo "Paginas sem noindex:" >&2
+            echo "$faltando" >&2
+            exit 1
+          fi
+
+          grep -q 'Disallow: /' dist-rascunho/robots.txt
+
+          if grep -RIn --include='*.html' --include='*.xml' --include='*.js' --include='*.css' --include='*.svg' --include='*.txt' 'https://terradic.com.br' dist-rascunho; then
+            echo "URL de producao encontrada no preview" >&2
+            exit 1
+          fi
+
+          grep -Rq --include='*.html' 'VERSÃO DE REVISÃO' dist-rascunho
+
+      - name: Upload do artefato
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist-rascunho
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

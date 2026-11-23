@@ -5,12 +5,13 @@ telerradiologia no Ceará). O site é gerado por um build próprio em Node: HTML
 compilado via CLI (nunca CDN) + um único bundle de JavaScript vanilla. Não há backend, banco de
 dados, formulário, cookie próprio ou analytics.
 
-Este repositório está na **quarta rodada de implementação**: as Fases 0 a 4 do
-`specs/001-site-institucional-terradic/tasks.md` estão implementadas (com as correções do QA das
-rodadas anteriores) e a Fase 5 (SEO técnico) foi concluída. A Fase 6 está **parcial**: existe uma
-auditoria local via CDP para responsividade, foco e comportamento sem JavaScript, mas a auditoria
-formal com axe, o teste de teclado/leitor de tela, a revisão responsiva manual e o Lighthouse seguem
-pendentes. Deploy e go-live continuam bloqueados pelos dados do cliente (C-01..C-15; T013 parcial).
+Este repositório está na **quarta rodada de implementação**, com um **fluxo de pré-visualização no
+GitHub Pages**: as Fases 0 a 4 do `specs/001-site-institucional-terradic/tasks.md` estão implementadas
+(com as correções do QA das rodadas anteriores) e a Fase 5 (SEO técnico) foi concluída. A Fase 6 está
+**parcial**: existe uma auditoria local via CDP para responsividade, foco e comportamento sem
+JavaScript, mas a auditoria formal com axe, o teste de teclado/leitor de tela, a revisão responsiva
+manual e o Lighthouse seguem pendentes. Deploy e go-live continuam bloqueados pelos dados do cliente
+(C-01..C-15; T013 parcial).
 
 ## Requisitos
 
@@ -38,7 +39,7 @@ O build não acessa a rede. A única chamada externa é o Tailwind CLI local.
 `npm run check` grava o artefato de revisão em `dist-rascunho/` (ignorado no git) e **não** sobrescreve `dist/`. Como o script já inclui `--rascunho`, `npm run check -- --base-url=...` também grava e audita em `dist-rascunho/`. Para gerar e auditar staging em `dist-staging/`, rode
 `node scripts/build.mjs --check --base-url=...` **sem** `--rascunho`. Nos dois casos `dist/` não é tocado. O relatório em
 `relatorios/` é sempre gerado a partir dos dados reais, inclusive quando o build é de rascunho.
-O deploy publica **apenas** a saída de `npm run build` (ou de `npm run build:go-live` quando ele passar).
+O deploy de produção publica **apenas** `dist/` quando `npm run build:go-live` estiver verde; o Pages é apenas preview de rascunho.
 
 ### Flags do build
 
@@ -65,7 +66,8 @@ src/templates/    layout, páginas e parciais com tokens {{...}}
 src/css/          entrada do Tailwind + tokens de tema (únicas cores literais do projeto)
 src/js/           bundle único (menu, acordeões, fachada de mapa)
 src/estatico/     favicon, marca provisória, imagens OG por tipo (og-*.png)
-scripts/          build.mjs, servidor.mjs, testes.mjs, lib/*.mjs
+.github/workflows/ pages-preview.yml (preview de rascunho no GitHub Pages)
+scripts/          build.mjs, servidor.mjs, testes.mjs, prefixar-base.mjs, lib/*.mjs
 dist/             saída de produção gerada (ignorada no git)
 dist-rascunho/    saída de revisão do --rascunho/--check (ignorada no git)
 dist-staging/     saída de pré-visualização com --base-url (ignorada no git)
@@ -411,11 +413,46 @@ Cada regra do `--check` e do validador tem um teste que comprova a falha:
 - `npm run dev` é um servidor local simples para pré-visualizar o rascunho; não é o servidor de
   produção.
 
+## Pré-visualização no GitHub Pages
+
+O repositório publica um **preview não produtivo** em `https://<owner>.github.io/clinica-terradic/`
+(project page, repositório público). O conteúdo é o build de rascunho: 17 páginas com dados fictícios,
+faixa "VERSÃO DE REVISÃO" e `noindex`. Não é o host de produção e não substitui T064.
+
+O GitHub Pages não permite headers HTTP personalizados (CSP, `X-Content-Type-Options`, `Cache-Control`);
+o `noindex` do preview depende de `<meta robots>` e `robots.txt`, e T064 continua aberto.
+
+O workflow `.github/workflows/pages-preview.yml` roda em `push` para `master` e em
+`workflow_dispatch`: executa `npm test`, gera o rascunho com
+`npm run check -- --base-url="$BASE"`, prefixa a base do project page com
+`node scripts/prefixar-base.mjs dist-rascunho /clinica-terradic` e publica **somente**
+`dist-rascunho` com `actions/deploy-pages`. `dist/` nunca é publicado pelo Pages.
+
+**Pré-requisito:** em Settings → Pages → Source, selecione **GitHub Actions** antes do primeiro
+deploy. A habilitação do Pages é um passo manual obrigatório; o workflow apenas publica.
+
+Para simular localmente:
+
+```powershell
+$BASE = "https://<owner>.github.io/clinica-terradic"
+npm run build:rascunho -- --base-url=$BASE
+npm run preview:prefixo
+```
+
+O `preview:prefixo` reescreve `href`/`src` internos de `dist-rascunho` para `/clinica-terradic`.
+Sirva esse diretório sob o caminho `/clinica-terradic`; `npm run dev` serve na raiz e não simula o
+subdiretório do Pages.
+
+A base `/clinica-terradic` é derivada de `GITHUB_REPOSITORY#*/`; ajuste se o repositório for renomeado.
+Se o repositório virar `<owner>.github.io`, não use a prefixação: o Pages serve o site na raiz.
+
 ## Deploy
 
-- O deploy publica **apenas** a saída de `npm run build` (ou de `npm run build:go-live` quando ele
-  passar). Nunca publique `dist-rascunho/`, que contém faixa de revisão, `noindex` e dados fictícios,
-  nem `dist-staging/`, que é saída de pré-visualização com `noindex` e `Disallow: /`.
+- A produção publica **apenas** `dist/` quando `npm run build:go-live` estiver verde. O
+  `npm run build` tolerante é para revisão e não autoriza publicação.
+- O GitHub Pages é apenas preview de rascunho e **não** é o host de produção.
+- Nunca publique `dist-rascunho/` ou `dist-staging/` **em produção**. O Pages de preview é a exceção
+  controlada e publica somente `dist-rascunho/`.
 - `dist/`, `dist-rascunho/` e `dist-staging/` são ignorados no git; `relatorios/` também.
 - O artefato de produção é conferido pelo `--check`: sem `noindex`, sem faixa "VERSÃO DE REVISÃO",
   sem unidades de teste e sem URL fictícia no `sitemap.xml`.

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { readFile, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { readFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
@@ -26,6 +26,7 @@ import { gerarRelatorio } from './lib/relatorio.mjs';
 import { renderizarBlocos } from './lib/blocos.mjs';
 import { diretorioDeSaida, fotografiaDiretorio, gerarRobots, gerarSitemap } from './build.mjs';
 import { serializarJsonLd } from './lib/seo.mjs';
+import { normalizarBase, prefixarDiretorio, prefixarHtml, validarArtefato } from './prefixar-base.mjs';
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const URL_BASE = 'https://terradic.com.br';
@@ -1541,5 +1542,121 @@ test('R4-QA: staging tem noindex e producao tem index nas paginas publicaveis', 
       pagina.html.includes(`<meta name="robots" content="${esperado}">`),
       `${pagina.rota}: ${esperado}`
     );
+  }
+});
+
+// ---------- Preview no GitHub Pages ----------
+
+test('R4-QA: prefixarHtml reescreve href/src root-relative e preserva absolutos', () => {
+  const base = normalizarBase('clinica-terradic/');
+  assert.equal(base, '/clinica-terradic');
+  const html = [
+    '<a href="/">home</a>',
+    '<a href="/unidades/">unidades</a>',
+    '<a href="/#topo">topo</a>',
+    '<a href="#ancora">ancora</a>',
+    '<a href="https://exemplo.com/">externo</a>',
+    '<a href="//cdn.exemplo.com/x">cdn</a>',
+    '<a href="mailto:contato@exemplo.com">mail</a>',
+    '<a href="tel:+558500000000">tel</a>',
+    '<a href="data:text/plain,ok">dados</a>',
+    '<img src="/assets/foto.png">',
+    '<link rel="canonical" href="https://owner.github.io/clinica-terradic/">',
+    '<meta property="og:image" content="https://owner.github.io/clinica-terradic/assets/og.png">'
+  ].join('');
+
+  const resultado = prefixarHtml(html, base);
+  assert.equal(resultado.reescritas, 4);
+  assert.ok(resultado.html.includes('href="/clinica-terradic/"'));
+  assert.ok(resultado.html.includes('href="/clinica-terradic/unidades/"'));
+  assert.ok(resultado.html.includes('href="/clinica-terradic/#topo"'));
+  assert.ok(resultado.html.includes('src="/clinica-terradic/assets/foto.png"'));
+  assert.ok(resultado.html.includes('href="#ancora"'));
+  assert.ok(resultado.html.includes('href="https://exemplo.com/"'));
+  assert.ok(resultado.html.includes('href="//cdn.exemplo.com/x"'));
+  assert.ok(resultado.html.includes('href="mailto:contato@exemplo.com"'));
+  assert.ok(resultado.html.includes('href="tel:+558500000000"'));
+  assert.ok(resultado.html.includes('href="data:text/plain,ok"'));
+  assert.ok(
+    resultado.html.includes('rel="canonical" href="https://owner.github.io/clinica-terradic/"')
+  );
+  assert.ok(
+    resultado.html.includes('content="https://owner.github.io/clinica-terradic/assets/og.png"')
+  );
+
+  const segunda = prefixarHtml(resultado.html, base);
+  assert.equal(segunda.reescritas, 0);
+  assert.equal(segunda.html, resultado.html);
+});
+
+test('R4-QA: prefixar base valida destinos e falha em links sem prefixo', async () => {
+  const diretorio = await mkdtemp(path.join(os.tmpdir(), 'terradic-prefixo-'));
+  try {
+    await mkdir(path.join(diretorio, 'sobre'), { recursive: true });
+    await mkdir(path.join(diretorio, 'assets'), { recursive: true });
+    await writeFile(
+      path.join(diretorio, 'index.html'),
+      '<a href="/sobre/">sobre</a><img src="/assets/foto.png">'
+    );
+    await writeFile(path.join(diretorio, 'sobre', 'index.html'), '<a href="/">home</a>');
+    await writeFile(path.join(diretorio, 'assets', 'foto.png'), Buffer.from([0]));
+
+    const prefixado = await prefixarDiretorio(diretorio, '/clinica-terradic');
+    assert.ok(prefixado.reescritas > 0);
+    const valido = await validarArtefato(diretorio, '/clinica-terradic');
+    assert.deepEqual(valido.erros, []);
+    assert.ok(valido.validados >= 3);
+
+    await writeFile(
+      path.join(diretorio, 'index.html'),
+      '<a href="/sem-prefixo/">restante</a>'
+    );
+    const semPrefixo = await validarArtefato(diretorio, '/clinica-terradic');
+    assert.ok(semPrefixo.erros.some((erro) => erro.includes('sem prefixo')));
+
+    await writeFile(
+      path.join(diretorio, 'index.html'),
+      '<a href="/clinica-terradic/ausente/">restante</a>'
+    );
+    const inexistente = await validarArtefato(diretorio, '/clinica-terradic');
+    assert.ok(inexistente.erros.some((erro) => erro.includes('destino inexistente')));
+  } finally {
+    await rm(diretorio, { recursive: true, force: true });
+  }
+});
+
+test('R4-QA: normalizarBase rejeita esquema, // e ..', () => {
+  for (const base of [
+    'https://owner.github.io/clinica-terradic',
+    'http:clinica-terradic',
+    '//owner.github.io/clinica-terradic',
+    '/clinica/../terradic'
+  ]) {
+    assert.throws(() => normalizarBase(base), base);
+  }
+});
+
+test('R4-QA: validarArtefato detecta atributos e links nao suportados', async () => {
+  const diretorio = await mkdtemp(path.join(os.tmpdir(), 'terradic-prefixo-'));
+  const casos = [
+    ['srcset.html', '<img srcset="/assets/foto.png 1x">', 'srcset'],
+    ['action.html', '<form action="/enviar"></form>', 'action'],
+    ['url.html', '<div style="background:url(/assets/foto.png)"></div>', 'url(/...)'],
+    ['href-sem-aspas.html', '<a href=/sobre/>x</a>', 'sem aspas'],
+    ['src-sem-aspas.html', '<img src=/assets/foto.png>', 'sem aspas']
+  ];
+  try {
+    for (const [nome, html, esperado] of casos) {
+      const arquivo = path.join(diretorio, nome);
+      await writeFile(arquivo, html);
+      const resultado = await validarArtefato(diretorio, '/clinica-terradic');
+      assert.ok(
+        resultado.erros.some((erro) => erro.includes(esperado)),
+        `${nome}: ${esperado}`
+      );
+      await rm(arquivo);
+    }
+  } finally {
+    await rm(diretorio, { recursive: true, force: true });
   }
 });

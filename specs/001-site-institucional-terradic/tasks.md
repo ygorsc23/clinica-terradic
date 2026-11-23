@@ -142,7 +142,7 @@
   *Pronto quando:* o `geo` aparece nas unidades com coordenada confirmada e sua ausência, nas demais, não gera erro e está listada no relatório de pendências; `taxID`/RT conferidos.
 - [x] **T045a [L] Preparar staging com `noindex` e conferir a marcação** — build de staging via `--base-url` (pode usar o build de produção tolerante), `meta robots: noindex` em todas as páginas, `robots.txt` de produção intacto; verificar que o build de produção e o go-live não emitem o meta.
   *Pronto quando:* todas as páginas servidas no staging têm `<meta name="robots" content="noindex">`, com detecção independente da ordem dos atributos (AC-34), o build de produção não tem esse meta e `robots.txt` de produção libera o site apontando o sitemap (AC-14).
-  *Estado:* **concluída na rodada 4 (marcação)** — `--base-url` de staging emite `<meta name="robots" content="noindex, follow">` em todas as páginas e `robots.txt` com `Disallow: /`; produção segue com `Allow: /` e sem noindex (`R4-F5: staging recebe noindex e robots próprio; produção não`). O build de staging grava em `dist-staging/` (nunca em `dist/`), e o teste do diretório de saída em `scripts/testes.mjs` cobre `dist-staging` e `dist-rascunho`. O deploy em hospedagem real depende de Q-07/T064.
+  *Estado:* **concluída na rodada 4 (marcação)** — `--base-url` de staging emite `<meta name="robots" content="noindex, follow">` em todas as páginas e `robots.txt` com `Disallow: /`; produção segue com `Allow: /` e sem noindex (`R4-F5: staging recebe noindex e robots próprio; produção não`). O build de staging grava em `dist-staging/` (nunca em `dist/`), e o teste do diretório de saída em `scripts/testes.mjs` cobre `dist-staging` e `dist-rascunho`. O deploy em hospedagem real depende de Q-07/T064. O preview no GitHub Pages (project page, T071) é alternativa **não produtiva** e não substitui o staging em hospedagem de produção (Q-07/T064).
 - [ ] **T045b [C] Verificar o domínio no Search Console/Bing e enviar o sitemap** — depende de acesso ao DNS/domínio definitivo (C-12): verificação por registro TXT ou arquivo, envio do `sitemap.xml`, conferência de cobertura e de erros.
   *Pronto quando:* propriedade verificada, sitemap aceito sem erros e nenhuma URL de rascunho reportada.
 
@@ -195,6 +195,9 @@
 
 ## Fase 8 — Go-live e operação
 
+- [x] **T071 [L] Implementar o fluxo de pré-visualização não produtiva no GitHub Pages** — workflow `.github/workflows/pages-preview.yml` (`pages-preview`) em `push` para `master` e `workflow_dispatch`: `npm test`, build de rascunho com `--base-url` do project page (17 páginas, faixa "VERSÃO DE REVISÃO", `noindex` em todas as páginas e `robots.txt` com `Disallow: /`), prefixador `scripts/prefixar-base.mjs` reescrevendo `href`/`src` root-relative para `/<repo>` e conferindo os destinos, guard de artefato (exige `index.html` e `404.html`, recusa página sem `noindex`, URL de produção no artefato, `dist/` presente ou faixa de revisão ausente) e publicação apenas de `dist-rascunho` via `actions/deploy-pages`.
+  *Pronto quando:* o workflow entrega `dist-rascunho` prefixado em `/<repo>`, o guard e os testes do prefixador (`R4-QA: prefixar base...`) passam e `dist/` nunca é publicado pelo Pages.
+  *Estado:* **fluxo implementado e aprovado no QA; primeira publicação depende de autenticação no GitHub** — é preview não produtivo com `noindex` e **não fecha T064**. Pronto: workflow, prefixador e guard. Falta: criar o repositório público, habilitar o Pages (origem GitHub Actions), executar o primeiro deploy e rodar o smoke test em `https://<owner>.github.io/<repo>/` (rotas, CTA externo, mapa, 404). Gaps do Pages: sem headers de resposta, logo T064 (CSP, cache e segurança) continua aberto e o Pages não é o host de produção.
 - [ ] **T064 [L] Configurar hospedagem de produção** — HTTPS, 404, headers de cache/segurança, CSP com `frame-src` do Maps.
 - [ ] **T065 [L] Deploy de produção + smoke test** — somente a partir de `--go-live` verde (AD-12); todas as rotas 200, CTA externo, mapa, 404, sitemap acessível.
   *Pronto quando:* AC-01/AC-10/AC-14 verificados na URL pública.
@@ -215,8 +218,8 @@
 | 1 | F0–F3 (parcial): fundação, build, layout, unidades, serviços e preparo | concluída; T013 entregue **parcial** (AC-21/AC-30 dependem de C-02/C-03/C-08); T010 (identidade oficial) e T030 (revisão do RT) seguem com o cliente |
 | 2 | Correções do QA (T006/T008/T029, ajustes pontuais de T013 e artefatos), renderizador de blocos (T005/T006/T011a), git (T001) e versão HTML da proposta | concluída — T001 fechada em 2026-11-20 (`d056e8a` + `393c73e`, árvore limpa); gates do QA incorporados ao spec/plano |
 | 3 | F4: T033–T037a (convênios, sobre/RT, contato, privacidade) | concluída na estrutura — T033–T037a implementadas; conteúdo aprovado pendente mantém as páginas fora da produção e o go-live vermelho (esperado); F5/F6 executadas na rodada 4 |
-| 4 | F5: T038–T043, T045a; F6: T049–T052 | F5 concluída; F6 parcial — T049/T050/T052 fechadas no estado atual, T046/T047/T048/T051 exigem navegador/ferramenta e ficam para o pré-go-live; T045a entregue na marcação, deploy de staging depende de Q-07/T064 |
-| Pós-cliente | F7–F8: T053–T070 | dependente do cliente |
+| 4 | F5: T038–T043, T045a; F6: T049–T052; infra de F8: T071 | F5 concluída; F6 parcial — T049/T050/T052 fechadas no estado atual, T046/T047/T048/T051 exigem navegador/ferramenta e ficam para o pré-go-live; T045a entregue na marcação, deploy de staging depende de Q-07/T064; T071 entregue como infraestrutura de preview (F8), primeira publicação pendente de autenticação no GitHub |
+| Pós-cliente | F7–F8: T053–T070 | dependente do cliente; T071 (preview) já entregue e fora desse bloqueio |
 
 ```
 T001→T002→T003→T004→T005→T006→T007→T008
@@ -236,7 +239,9 @@ T053..T063 (bloqueiam go-live)
 T064..T070 (T065 só a partir de `--go-live` verde)
 ```
 
-**Caminho crítico sem cliente:** T001–T016 (exceto as partes dependentes de cliente em T010/T013), T019–T022, T027–T029, T031–T033, T035–T037a, T038–T043, T045a, T046–T052, T064–T065, T067–T068. Tudo isso pode ser construído e revisado com dados de teste locais, enquanto C-01..C-15 são coletados. T013 fica **parcial** até C-02/C-03/C-08 (AC-21/AC-30); T029 é estrutural, mas AC-09 só fecha após C-09/T030. AC-21, AC-30, AC-31 e AC-33 só são verificáveis no go-live. F5 está **fechada** (T038–T043, T045a) e F6 está **parcial**: T049/T050/T052 fechadas no estado atual; T046/T047/T048/T051 exigem navegador/ferramenta e ficam para o pré-go-live. Enquanto F4/F7 não tiverem conteúdo aprovado, as páginas de convênios/sobre/contato/privacidade ficam fora da produção e o `--go-live` fica vermelho — é o comportamento correto do gate, não um defeito.
+T071 (preview no Pages) é paralela a F8: não bloqueia T064/T065 e não substitui o staging.
+
+**Caminho crítico sem cliente:** T001–T016 (exceto as partes dependentes de cliente em T010/T013), T019–T022, T027–T029, T031–T033, T035–T037a, T038–T043, T045a, T046–T052, T064–T065, T067–T068, T071 (fluxo de preview já implementado; primeira publicação depende de autenticação no GitHub). Tudo isso pode ser construído e revisado com dados de teste locais, enquanto C-01..C-15 são coletados. T013 fica **parcial** até C-02/C-03/C-08 (AC-21/AC-30); T029 é estrutural, mas AC-09 só fecha após C-09/T030. AC-21, AC-30, AC-31 e AC-33 só são verificáveis no go-live. F5 está **fechada** (T038–T043, T045a) e F6 está **parcial**: T049/T050/T052 fechadas no estado atual; T046/T047/T048/T051 exigem navegador/ferramenta e ficam para o pré-go-live. Enquanto F4/F7 não tiverem conteúdo aprovado, as páginas de convênios/sobre/contato/privacidade ficam fora da produção e o `--go-live` fica vermelho — é o comportamento correto do gate, não um defeito.
 
 ---
 

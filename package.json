@@ -13,6 +13,7 @@
     "build:rascunho": "node scripts/build.mjs --rascunho",
     "build:go-live": "node scripts/build.mjs --go-live",
     "check": "node scripts/build.mjs --rascunho --check",
+    "preview:prefixo": "node scripts/prefixar-base.mjs dist-rascunho /clinica-terradic",
     "test": "node --test scripts/testes.mjs"
   },
   "devDependencies": {
