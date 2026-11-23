@@ -13,8 +13,10 @@
     "build:rascunho": "node scripts/build.mjs --rascunho",
     "build:go-live": "node scripts/build.mjs --go-live",
     "check": "node scripts/build.mjs --rascunho --check",
+    "coleta": "node scripts/coleta.mjs",
+    "importar:coleta": "node scripts/importar-coleta.mjs",
     "preview:prefixo": "node scripts/prefixar-base.mjs dist-rascunho /clinica-terradic",
-    "test": "node --test scripts/testes.mjs"
+    "test": "node --test scripts/testes.mjs scripts/testes-coleta.mjs"
   },
   "devDependencies": {
     "tailwindcss": "3.4.17"

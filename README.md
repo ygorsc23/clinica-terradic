@@ -28,18 +28,21 @@ npm ci
 | Comando | O que faz |
 |---|---|
 | `npm run dev` | Gera o site em modo `--rascunho`, sobe `http://localhost:4173/` e reconstrói ao alterar `src/`, `dados/`, `dados-teste/` ou `tailwind.config.js`. |
-| `npm run build` | Build de produção tolerante: só publica unidade `ativo` + validação `confirmado` + telefone validado, serviço `aprovado`, preparo `aprovado`. Grava `dist/` e `relatorios/`. |
-| `npm run build:go-live` | Gate estrito de publicação: exige unidade publicável, menu com ao menos 2 itens, rotas estruturais, preparos aprovados, RT/CRM, contato institucional e endereço da matriz. Falha listando **todos** os bloqueios de uma vez. Hoje falha (dados pendentes) — comportamento esperado. |
+| `npm run build` | Build **tolerante de revisão/preview**: inclui no artefato apenas unidade `ativo` + validação `confirmado` + telefone validado, serviço `aprovado`, preparo `aprovado`. Grava `dist/`, mas **nunca é publicável sozinho**. |
+| `npm run build:go-live` | **Único gate de publicação**: exige unidade publicável, menu com ao menos 2 itens, rotas estruturais, preparos aprovados, RT/CRM, contato institucional e endereço da matriz. Falha listando **todos** os bloqueios de uma vez. Hoje falha (dados pendentes) - comportamento esperado. |
 | `npm run build:rascunho` | Build de revisão: inclui entidades pendentes, usa `dados-teste/unidades.exemplo.json` quando existir e adiciona a faixa "VERSÃO DE REVISÃO — DADOS NÃO CONFIRMADOS" + `noindex`. Grava `dist-rascunho/`. |
 | `npm run check` | `--rascunho --check`: valida dados, gera o site de revisão em `dist-rascunho/` e roda **todas** as regras de QA sobre o rascunho e sobre uma produção real gerada em diretório temporário (links, `tel:`, `rel`, NAP visível, hex, claims, orçamento, requisição externa em HTML/JS/CSS, artefato de produção). Também confere que o `dist/` de produção não foi alterado. |
-| `npm test` | Testes negativos com `node:test` (validador de dados, regras do `--check`, go-live, blocos, metadados e SEO). |
+| `npm run coleta` | Gera o **kit de coleta** em `relatorios/coleta/` (questionário HTML, cinco CSVs e `LEIA-ME.txt`) a partir dos dados atuais. Não altera `dados/`, `dist/` nem `src/`. |
+| `npm run importar:coleta` | Importa o kit devolvido de `relatorios/coleta/` (ou de `--pasta=`), valida tudo e grava `dados/*.json` somente se o conjunto inteiro estiver válido. Nunca promove status. |
+| `npm test` | Testes negativos com `node:test` nas duas suítes: build/validador/check da 001 e kit de coleta (CSV, modelo, importador e isolamento). |
 
 O build não acessa a rede. A única chamada externa é o Tailwind CLI local.
 
 `npm run check` grava o artefato de revisão em `dist-rascunho/` (ignorado no git) e **não** sobrescreve `dist/`. Como o script já inclui `--rascunho`, `npm run check -- --base-url=...` também grava e audita em `dist-rascunho/`. Para gerar e auditar staging em `dist-staging/`, rode
 `node scripts/build.mjs --check --base-url=...` **sem** `--rascunho`. Nos dois casos `dist/` não é tocado. O relatório em
 `relatorios/` é sempre gerado a partir dos dados reais, inclusive quando o build é de rascunho.
-O deploy de produção publica **apenas** `dist/` quando `npm run build:go-live` estiver verde; o Pages é apenas preview de rascunho.
+
+**Deploy:** `npm run build` é apenas revisão/preview e **nunca** deve ser publicado. O único pré-requisito de publicação de produção é `npm run build:go-live` **verde**; o Pages é preview de rascunho e não é produção.
 
 ### Flags do build
 
@@ -54,7 +57,85 @@ node scripts/build.mjs --check --base-url=https://staging.exemplo.com
 `--base-url` troca as URLs geradas (canonical, sitemap, robots) e coloca o build em modo staging:
 todas as páginas recebem `noindex, follow` e o `robots.txt` sai com `Disallow: /`. A saída de staging
 vai para `dist-staging/` (nunca para `dist/`); com `--rascunho`, a saída continua em `dist-rascunho/`.
-O `dados/site.json` continua exigindo `https://terradic.com.br`; nada disso afeta o build de produção.
+O `dados/site.json` continua exigindo `https://terradic.com.br`; staging nunca escreve em `dist/`.
+
+## Kit de coleta de dados
+
+O go-live continua bloqueado pelas dependências de conteúdo C-01..C-15. O kit de coleta reduz a
+transcrição manual: ele deriva um questionário imprimível e cinco planilhas CSV de `dados/*.json`,
+`dados/exemplos-briefing.json` e das mesmas funções de validação e de relatório usadas pelo build.
+**O kit não publica nada**, não altera schema e não substitui `relatorios/pendencias.md`.
+
+### Gerar o kit
+
+```powershell
+npm run coleta
+```
+
+Saída em `relatorios/coleta/` (diretório ignorado no Git):
+
+| Arquivo | Conteúdo |
+|---|---|
+| `questionario.html` | Questionário autocontido e imprimível em A4, sem formulário, script ou requisição externa. |
+| `unidades.csv` | Uma linha por unidade: endereço, geo, telefones, WhatsApp, e-mail, horários, serviços, convênios, atendimento particular, comodidades, redes e bloco de confirmação. |
+| `site.csv` | Uma linha: RT/CRM/UF/especialidade, contato institucional e redes. |
+| `convenios.csv` | Uma linha por convênio e vigência; convênio novo pode ser acrescentado. |
+| `preparos.csv` | Uma linha por preparo, com revisão do RT. |
+| `textos.csv` | Uma linha por bloco editorial pendente. |
+| `LEIA-ME.txt` | Instruções para a clínica: tokens, Excel, bloco de confirmação, LGPD e devolução. |
+
+Os nomes e a versão do modelo são fixos (`coleta-1`). `base_dados_em` é a data de
+`dados/site.json.atualizadoEm`, não a data da execução. A geração é determinística: duas execuções
+com a mesma entrada produzem os mesmos bytes. Para testes, `node scripts/coleta.mjs --raiz=<dir>`
+usa uma raiz temporária; o comando nunca escreve em `dados/`, `dist/`, `dist-rascunho/`,
+`dist-staging/` ou `src/`.
+
+### Fluxo
+
+1. Rode `npm run coleta` com os dados atuais e revise o resumo (arquivos, linhas e dependências pendentes).
+2. Imprima `questionario.html` para a reunião e envie a pasta com os cinco CSVs para a clínica preencher.
+3. A clínica preenche os CSVs e devolve a pasta pelo canal combinado. O HTML é apoio; o preenchimento oficial é no CSV.
+4. Rode `npm run importar:coleta -- --pasta=relatorios/coleta`. O importador valida as mesmas regras do build, lista todos os erros de uma vez e só grava `dados/*.json` se o kit inteiro estiver válido.
+5. Revise o diff, as fontes e o log de importação.
+6. Promova manualmente o que estiver confirmado e rode `npm run build`, `npm run check` e `npm run build:go-live`. O go-live segue sendo o único gate de publicação.
+
+### Importar o kit devolvido
+
+```powershell
+npm run importar:coleta -- --pasta=relatorios/coleta
+```
+
+| Flag | Efeito |
+|---|---|
+| `--pasta=` | Pasta com os cinco CSVs (padrão `relatorios/coleta`, relativa à raiz). |
+| `--raiz=` | Raiz do repositório; usado para testar em cópia temporária de `dados/`. |
+| `--sobrescrever` | **Operação excepcional e auditada.** Permite alterar entidade já confirmada; rebaixa unidade/preparo/bloco/RT para pendente e registra no log os campos submetidos. Sem a flag, a importação falha e não grava nada. Use somente após revisar o motivo e o diff. |
+
+O importador exige os cinco CSVs, valida encoding (UTF-8; recusa UTF-16/ANSI), separador `;`, cabeçalho, `modelo_versao` e `tipo_registro`, limites de tamanho/linhas/células, normaliza CEP/data/telefone/decimal e recusa célula iniciada por `=`/`@`/`-`/`+` fora de telefone/coordenada, além de caracteres de controle. Erros saem no formato `arquivo:campo:entidade`; em qualquer erro, nenhum JSON de `dados/` é escrito. O resultado fica em `relatorios/coleta/importacao.md` e `importacao.json` (linhas processadas, campos, tokens, sobrescritas, confirmações, vínculos, erros e promoções pendentes), com "nada foi gravado" quando falha.
+
+Kit com `base_dados_em` anterior a `dados/site.json.atualizadoEm` é recusado para não sobrescrever dado mais novo; gere o kit de novo ou use `--sobrescrever` de forma auditada. `dados/site.json.atualizadoEm` é a base de geração do conjunto e **não é alterado pela importação**; como ele só muda por edição manual, a proteção de kit antigo só dispara se essa base for elevada manualmente na manutenção dos dados. O importador atualiza apenas a data das unidades, do catálogo de convênios, da revisão dos preparos e das páginas editoriais (`paginas.atualizadoEm`) com a maior confirmação importada. Telefone idêntico a `dados/exemplos-briefing.json` continua recusado pelo validador, mesmo com bloco de confirmação: remova manualmente o exemplo correspondente após registrar a confirmação e reimporte. O importador não altera esse arquivo. Reimportar o mesmo kit é idempotente; `atualizadoEm`, `validacao.data` e `revisao.data` usam a maior data de confirmação, nunca o relógio.
+
+**Modelo de confiança:** a planilha é entrada de terceiro (clínica, RT e jurídico). A validação do importador é estrutural — formato, versão, referências, limites e invariantes de status — e não prova a veracidade do dado. O gate é a revisão humana do diff de `dados/*.json`, das fontes e do log antes da promoção manual.
+
+### Testes do kit
+
+`npm test` executa também `scripts/testes-coleta.mjs`. A suíte gera e importa kits em diretórios temporários (`mkdtemp`), cobre os casos negativos do CSV/importador, o contrato C-01..C-15, o isolamento e compara o hash de `dados/` real antes/depois. O que é verificável por script do UAT (BOM, CRLF, `;`, cabeçalhos, `@page` A4, ausência de elemento externo e largura de tabela) está coberto; abrir/editar no Excel pt-BR e imprimir o HTML continuam pendentes de verificação humana.
+
+### O que é importado x o que é promoção manual
+
+- **Importado (sempre pendente):** valores das células e a rastreabilidade declarada no bloco de confirmação (`confirmadoPor`, `data` e `fontes` na unidade; `revisao.responsavel`/`crm`/`data` no preparo; texto e status do bloco; RT; `atualizadoEm` do catálogo de convênios). A unidade importada continua `status: "a-confirmar"` e `validacao.status: "pendente"`.
+- **Promoção manual:** `status: "ativo"`, `validacao.status: "confirmado"`, serviço e preparo `aprovado`, bloco `aprovado` e RT `confirmado`. Nenhuma coluna de status de publicação existe no modelo; tentar gravá-la é erro.
+- **Sempre manual:** criar unidade ou preparo novo (slug e revisão continuam no fluxo do README), criar bloco editorial novo em `paginas.json`, exibir vigência de convênio por operadora no site (fora desta feature; a vigência é registrada em `aviso`/`atualizadoEm`) e remover um telefone de `dados/exemplos-briefing.json` depois de confirmado.
+- **`--sobrescrever`:** operação excepcional e auditada. Alterar entidade já confirmada exige a flag explícita; sem ela, a importação falha e não grava nada. Com ela, a entidade alterada é rebaixada para pendente e o log registra os campos submetidos.
+
+### Preenchimento e privacidade
+
+- `A CONFIRMAR: ` marca valor pré-preenchido não confirmado e nunca é importado.
+- `NAO_TEMOS` grava ausência (lista vazia ou valor ausente); `NAO_SABEMOS` registra desconhecimento e preserva o valor existente. Célula vazia não altera o JSON.
+- Toda linha com dado respondido exige bloco de confirmação: quem (nome e função), como (e-mail, telefone, reunião, documento ou WhatsApp), fonte e data. Um "ok" genérico não é confirmação.
+- Não inclua dados de paciente, exames, laudos ou CPF de paciente no kit. O CRM do RT é dado profissional e só é registrado com a identificação de quem confirmou.
+
+O kit é sensível e **não é versionado**: `relatorios/` está no `.gitignore`. Compacte e envie a pasta por canal controlado; nunca faça commit de `relatorios/coleta/`.
 
 ## Estrutura
 
@@ -67,11 +148,11 @@ src/css/          entrada do Tailwind + tokens de tema (únicas cores literais d
 src/js/           bundle único (menu, acordeões, fachada de mapa)
 src/estatico/     favicon, marca provisória, imagens OG por tipo (og-*.png)
 .github/workflows/ pages-preview.yml (preview de rascunho no GitHub Pages)
-scripts/          build.mjs, servidor.mjs, testes.mjs, prefixar-base.mjs, lib/*.mjs
+scripts/          build.mjs, coleta.mjs, importar-coleta.mjs, servidor.mjs, testes.mjs, prefixar-base.mjs, lib/*.mjs
 dist/             saída de produção gerada (ignorada no git)
 dist-rascunho/    saída de revisão do --rascunho/--check (ignorada no git)
 dist-staging/     saída de pré-visualização com --base-url (ignorada no git)
-relatorios/       pendencias.md e pendencias.json (ignorados no git)
+relatorios/       pendencias.* e coleta/ (ignorados no git)
 ```
 
 O build escreve `dist/<rota>/index.html` (ou `dist-rascunho/<rota>/index.html` em revisão e
@@ -88,7 +169,7 @@ O build escreve `dist/<rota>/index.html` (ou `dist-rascunho/<rota>/index.html` e
    `tel:` usam o mesmo valor.
 3. Marque `validado: true` somente depois de confirmar o número com a clínica.
 4. Rode `npm run check` (ou `npm run build:rascunho`) e confira a página da unidade e o rodapé.
-5. Rode `npm run build` para o artefato de produção.
+5. Rode `npm run build` para o artefato de revisão; para publicar, só com `npm run build:go-live` verde.
 
 Nenhum template precisa ser alterado: página da unidade, índice, rodapé e JSON-LD são derivados do
 JSON.
@@ -102,7 +183,7 @@ JSON.
 3. Para publicar, preencha endereço completo + CEP, ao menos um telefone validado, horários,
    serviços, `atendimentoParticular`, `cnpjFilial`, `validacao.status: "confirmado"`,
    `confirmadoPor`, `data` e `fontes`, e mude `status` para `"ativo"`.
-4. Rode `npm run build` e depois `npm run check`. Um erro de dado sai no formato
+4. Rode `npm run check` e depois `npm run build` para o artefato de revisão. Um erro de dado sai no formato
    `arquivo:campo:entidade` (ex.: `unidades.json:endereco.cep:caninde`).
 
 ### Adicionar um serviço
@@ -155,6 +236,10 @@ JSON.
   menos um telefone com `validado: true` em E.164. `validado` ausente ou não booleano é erro.
 - Unidade publicável também exige ao menos um serviço `aprovado` entre os serviços informados.
 - Blocos editoriais exigem `status` `pendente|aprovado`; blocos pendentes não entram na produção.
+- `MedicalClinic.geo` só é emitido com latitude/longitude numéricas, `geo.precisao` diferente de
+  `"aproximada"` e `validacao.fontes` não vazio. Sem isso, o bloco é omitido.
+- Identidade provisória pode ir ao go-live apenas com `identidadeVisual.aceiteFormal` completo
+  (`aceitoPor`, `data` e `documento`); `status: "oficial"` também libera.
 - O telefone institucional da matriz é o marcado com `principal: true`; o go-live exige exatamente
   um principal validado. O cruzamento com `site.contatoInstitucional.telefoneE164` roda apenas em
   produção/go-live, nunca sobre o dataset de teste do rascunho.
@@ -344,6 +429,14 @@ Cada regra do `--check` e do validador tem um teste que comprova a falha:
 | Internal linking | "R4-F5: internal linking atinge todas as rotas em até 2 cliques" |
 | Staging | "R4-F5: staging recebe noindex e robots próprio; produção não" |
 | Sem JS | "R4-F6: preparo e mapa funcionam sem JavaScript" |
+| Staging: validação de `--base-url` | "R5-M1: validação de --base-url" |
+| Staging separado | "R5-M1: staging grava dist-staging e não toca dist; rascunho+baseurl grava dist-rascunho" |
+| geo confirmado | "R5-M2: geo exige precisão não aproximada e fontes" |
+| Bloco transversal pendente | "R5-M3: bloco transversal pendente não sai na produção..." |
+| Aceite formal da identidade | "R5-M4: identidade provisória exige aceite formal completo" |
+| Títulos editoriais da unidade | "R5-B1: títulos editoriais da unidade vêm de paginas.json" |
+| C-02/C-12 no relatório | "R5-B2: C-02 não bloqueia por geo e C-12 continua dependência..." |
+| CTA/FR-34 | "R5-B7: CTA do header/hero traz aviso externo..." |
 
 ## Identidade visual provisória
 
@@ -383,6 +476,13 @@ Cada regra do `--check` e do validador tem um teste que comprova a falha:
   auditoria formal com axe, o teste manual de teclado/leitor de tela, a revisão responsiva manual e o
   Lighthouse seguem pendentes.
 
+## Ambiente da evidência
+
+A evidência da rodada 5 foi produzida em **Node v26.13.0** (`npm 11.20.0`), não na versão
+`24.11.0` fixada em `.nvmrc`. Consequência para AC-24: o build foi reproduzido e os hashes de
+`dist/` antes/depois do `check` coincidem nesta máquina, mas o determinismo **no Node LTS fixado**
+não foi verificado nesta rodada. O CI deve usar `.nvmrc` para fechar AC-24.
+
 ## Limitações desta rodada
 
 - Com os dados atuais, o build de produção gera apenas `/` e `/404.html`: as 7 unidades estão
@@ -405,6 +505,8 @@ Cada regra do `--check` e do validador tem um teste que comprova a falha:
 - F5 (SEO) está implementada: metadados/OG por tipo, JSON-LD, sitemap/robots com `lastmod`, staging
   via `--base-url` e internal linking. Rich Results Test e Schema Validator externos não foram
   executados.
+- Relatório: C-02 bloqueia por endereço/CEP, não por `geo` (a ausência de geo é apenas listada);
+  C-12 permanece dependência do cliente (DNS/hospedagem) mesmo com `urlBase` preenchido.
 - F6 está **parcial**: axe e Lighthouse não foram instalados nem executados; a evidência é a
   auditoria local/CDP em `scripts/auditoria.mjs`, sem teste manual de teclado/leitor de tela nem
   revisão responsiva manual.
@@ -426,6 +528,8 @@ O Pages está habilitado com origem **GitHub Actions** (`build_type: workflow`).
 O GitHub Pages não permite headers HTTP personalizados (CSP, `X-Content-Type-Options`, `Cache-Control`);
 o `noindex` do preview depende de `<meta robots>` e `robots.txt`, e T064 continua aberto. O
 `robots.txt` do subcaminho é ignorado: rastreadores leem apenas o da raiz do domínio.
+
+**Risco aceito e documentado:** o preview publica o build de rascunho, que inclui entidades pendentes. Depois de uma importação real, dados ainda não promovidos podem aparecer no preview aberto do GitHub Pages. O usuário aceitou conscientemente esse risco; o workflow e o build **não** foram alterados. O preview continua `noindex`, não é o host de produção e não substitui `npm run build:go-live`.
 
 O workflow `.github/workflows/pages-preview.yml` roda em `push` para `master` e em
 `workflow_dispatch`: executa `npm test`, gera o rascunho com
@@ -454,8 +558,10 @@ Se o repositório virar `ygorsc23.github.io`, não use a prefixação: o Pages s
 
 ## Deploy
 
-- A produção publica **apenas** `dist/` quando `npm run build:go-live` estiver verde. O
-  `npm run build` tolerante é para revisão e não autoriza publicação.
+- **Produção:** somente `dist/` gerado por `npm run build:go-live` **verde**. `npm run build` é build
+  tolerante de revisão/preview e **nunca** autoriza publicação.
+- **CI de produção:** deve executar `npm ci`, `npm test`, `npm run check` e **falhar** se
+  `npm run build:go-live` não sair 0; só então publicar `dist/`.
 - O GitHub Pages é apenas preview de rascunho e **não** é o host de produção.
 - Nunca publique `dist-rascunho/` ou `dist-staging/` **em produção**. O Pages de preview é a exceção
   controlada e publica somente `dist-rascunho/`.
