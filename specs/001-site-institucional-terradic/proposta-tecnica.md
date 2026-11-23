@@ -96,6 +96,8 @@ Para evitar expectativa errada, ficam **fora** desta proposta:
 
 **Antes de ir ao ar, o site fica em um endereço de teste** que não aparece no Google. A publicação só acontece depois da aprovação do conteúdo e do responsável técnico.
 
+**A versão de revisão já está disponível para conferência** em <https://ygorsc23.github.io/clinica-terradic/>. É uma versão de revisão, não oficial, em endereço temporário. Ela usa dados fictícios e exibe, de forma visível, a faixa de que os dados ainda não foram confirmados. Também está fora dos resultados de busca. Serve para avaliar estrutura, organização, linguagem e legibilidade — não substitui a validação de conteúdo nem a publicação oficial, que dependem dos dados confirmados pela clínica (seção 6).
+
 ---
 
 ## 6. O que a clínica precisa fornecer
@@ -259,10 +261,11 @@ O detalhamento técnico completo está no documento técnico de referência do p
 
 ## 13. Próximos passos
 
-1. **Reunião de briefing** para confirmar unidades ativas, serviços, convênios e responsável técnico, e para responder às dúvidas abertas deste documento.
-2. **Coleta do material** listado na seção 6, com um responsável definido do lado da clínica.
-3. **Validação da identidade visual**: confirmar se existe manual de marca e logo oficial; se não, aprovar a direção provisória para a primeira versão.
-4. **Aprovação desta proposta** e do escopo, com registro das premissas e do que ficou fora.
+1. **Conferir a versão de revisão** em <https://ygorsc23.github.io/clinica-terradic/> e registrar comentários sobre estrutura, linguagem e legibilidade antes da reunião de briefing.
+2. **Reunião de briefing** para confirmar unidades ativas, serviços, convênios e responsável técnico, e para responder às dúvidas abertas deste documento.
+3. **Coleta do material** listado na seção 6, com um responsável definido do lado da clínica.
+4. **Validação da identidade visual**: confirmar se existe manual de marca e logo oficial; se não, aprovar a direção provisória para a primeira versão.
+5. **Aprovação desta proposta** e do escopo, com registro das premissas e do que ficou fora.
 
 ---
 
