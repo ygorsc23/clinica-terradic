@@ -415,26 +415,31 @@ Cada regra do `--check` e do validador tem um teste que comprova a falha:
 
 ## Pré-visualização no GitHub Pages
 
-O repositório publica um **preview não produtivo** em `https://<owner>.github.io/clinica-terradic/`
-(project page, repositório público). O conteúdo é o build de rascunho: 17 páginas com dados fictícios,
-faixa "VERSÃO DE REVISÃO" e `noindex`. Não é o host de produção e não substitui T064.
+O repositório público `ygorsc23/clinica-terradic` publica um **preview não produtivo** em
+<https://ygorsc23.github.io/clinica-terradic/> (project page). O conteúdo é o build de rascunho:
+17 páginas com dados fictícios, faixa "VERSÃO DE REVISÃO" e `noindex`. Não é o host de produção e
+não substitui T064. O preview é aberto, sem senha de acesso.
+
+O Pages está habilitado com origem **GitHub Actions** (`build_type: workflow`).
 
 O GitHub Pages não permite headers HTTP personalizados (CSP, `X-Content-Type-Options`, `Cache-Control`);
-o `noindex` do preview depende de `<meta robots>` e `robots.txt`, e T064 continua aberto.
+o `noindex` do preview depende de `<meta robots>` e `robots.txt`, e T064 continua aberto. O
+`robots.txt` do subcaminho é ignorado: rastreadores leem apenas o da raiz do domínio.
 
 O workflow `.github/workflows/pages-preview.yml` roda em `push` para `master` e em
 `workflow_dispatch`: executa `npm test`, gera o rascunho com
 `npm run check -- --base-url="$BASE"`, prefixa a base do project page com
 `node scripts/prefixar-base.mjs dist-rascunho /clinica-terradic` e publica **somente**
-`dist-rascunho` com `actions/deploy-pages`. `dist/` nunca é publicado pelo Pages.
+`dist-rascunho` com `actions/deploy-pages`. `dist/` nunca é publicado pelo Pages. O environment
+`github-pages` tem política de branch para `master` (ajuste feito no GitHub, não versionado).
 
-**Pré-requisito:** em Settings → Pages → Source, selecione **GitHub Actions** antes do primeiro
-deploy. A habilitação do Pages é um passo manual obrigatório; o workflow apenas publica.
+Deploy validado em 2026-11-23: home, `/unidades/`, CSS e JS responderam 200; o 404 é próprio;
+`noindex` e faixa de revisão presentes; nenhuma URL de produção no artefato.
 
 Para simular localmente:
 
 ```powershell
-$BASE = "https://<owner>.github.io/clinica-terradic"
+$BASE = "https://ygorsc23.github.io/clinica-terradic"
 npm run build:rascunho -- --base-url=$BASE
 npm run preview:prefixo
 ```
@@ -444,7 +449,7 @@ Sirva esse diretório sob o caminho `/clinica-terradic`; `npm run dev` serve na 
 subdiretório do Pages.
 
 A base `/clinica-terradic` é derivada de `GITHUB_REPOSITORY#*/`; ajuste se o repositório for renomeado.
-Se o repositório virar `<owner>.github.io`, não use a prefixação: o Pages serve o site na raiz.
+Se o repositório virar `ygorsc23.github.io`, não use a prefixação: o Pages serve o site na raiz.
 
 ## Deploy
 
